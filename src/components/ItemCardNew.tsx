@@ -1,10 +1,9 @@
 import React from 'react';
 import { StoreItem } from '../lib/supabase';
-import { Download, Star } from 'lucide-react';
+import ItemInteractions from './ItemInteractions';
 
 interface ItemCardProps extends StoreItem {
   onStatsUpdate?: () => void;
-  onItemClick?: (item: StoreItem) => void;
 }
 
 const ItemCard: React.FC<ItemCardProps> = (item) => {
@@ -14,24 +13,12 @@ const ItemCard: React.FC<ItemCardProps> = (item) => {
     image,
     category,
     price = 'Free',
-    description,
-    downloads,
-    rating,
-    onItemClick
+    description
   } = item;
 
-  const handleCardClick = () => {
-    if (onItemClick) {
-      onItemClick(item);
-    }
-  };
-
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300 hover:-translate-y-1 group cursor-pointer">
-      <div 
-        className="p-4"
-        onClick={handleCardClick}
-      >
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300 hover:-translate-y-1 cursor-pointer group">
+      <div className="p-4">
         <div className="flex items-start space-x-4">
           {/* App Icon */}
           <div className="flex-shrink-0">
@@ -39,9 +26,6 @@ const ItemCard: React.FC<ItemCardProps> = (item) => {
               src={image}
               alt={title}
               className="w-16 h-16 rounded-xl object-cover shadow-sm group-hover:shadow-md transition-shadow duration-300"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/64x64/e5e7eb/6b7280?text=App';
-              }}
             />
           </div>
 
@@ -53,7 +37,7 @@ const ItemCard: React.FC<ItemCardProps> = (item) => {
             <p className="text-sm text-gray-600 truncate">{developer}</p>
 
             {/* Category and Price */}
-            <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center justify-between mt-3">
               <span className="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">
                 {category}
               </span>
@@ -66,21 +50,12 @@ const ItemCard: React.FC<ItemCardProps> = (item) => {
             <p className="text-sm text-gray-600 mt-2 line-clamp-2">
               {description}
             </p>
-
-            {/* Basic Stats - No interaction buttons */}
-            <div className="flex items-center justify-between mt-3">
-              <div className="flex items-center space-x-4 text-sm text-gray-500">
-                <div className="flex items-center space-x-1">
-                  <Download className="w-4 h-4" />
-                  <span>{typeof downloads === 'string' ? downloads : downloads?.toLocaleString() || 0}</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span>{rating ? rating.toFixed(1) : '0.0'}</span>
-                </div>
-              </div>
-            </div>
           </div>
+        </div>
+
+        {/* Interactive Elements - Downloads, Ratings, Actions */}
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <ItemInteractions item={item} onStatsUpdate={item.onStatsUpdate} />
         </div>
       </div>
     </div>

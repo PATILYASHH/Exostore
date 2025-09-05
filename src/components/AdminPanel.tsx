@@ -1,20 +1,56 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Upload, Link, Save, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, Users, BarChart3, Settings, Database, Eye, Download, Star, Search, RefreshCw, TrendingUp, Package, Activity, Upload } from 'lucide-react';
 import { supabase, StoreItem } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { logAdminAction } from '../lib/adminUtils';
+import StorageTest from './StorageTest';
 
 const AdminPanel: React.FC = () => {
   const [items, setItems] = useState<StoreItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<StoreItem | null>(null);
-  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'items' | 'analytics' | 'users' | 'settings' | 'debug' | 'hero'>('dashboard');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterType, setFilterType] = useState('all');
+  const [stats, setStats] = useState({
+    totalItems: 0,
+    totalDownloads: 0,
+    averageRating: 0,
+    newItemsToday: 0,
+    categoriesCount: {} as Record<string, number>,
+    typeDistribution: {} as Record<string, number>
+  });
+  const { user, isAdmin } = useAuth();
+
+  // Admin access control
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
+          <p className="text-gray-600 mb-4">Please sign in to access the admin panel.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
+          <p className="text-gray-600 mb-4">You don't have admin privileges.</p>
+          <p className="text-sm text-gray-500">Only authorized administrators can access this panel.</p>
+        </div>
+      </div>
+    );
+  }
 
   const [formData, setFormData] = useState({
     title: '',
     developer: '',
-    rating: 0,
-    downloads: '0',
     image: '',
     category: '',
     price: 'Free',
@@ -24,11 +60,33 @@ const AdminPanel: React.FC = () => {
     file_path: ''
   });
 
-  const [uploadMethod, setUploadMethod] = useState<'link' | 'upload'>('link');
   const [uploading, setUploading] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+
+  // Screenshots management
+  const [screenshots, setScreenshots] = useState<string[]>([]);
+  const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+
+  // Hero banner management state
+  const [heroBanners, setHeroBanners] = useState<any[]>([]);
+  const [showHeroForm, setShowHeroForm] = useState(false);
+  const [editingHero, setEditingHero] = useState<any>(null);
+  const [heroFormData, setHeroFormData] = useState({
+    title: '',
+    subtitle: '',
+    description: '',
+    image_url: '',
+    link_url: '',
+    link_text: 'Learn More',
+    banner_type: 'promotion' as 'app' | 'sponsor' | 'promotion',
+    is_active: true,
+    display_order: 0
+  });
 
   useEffect(() => {
     fetchItems();
+    fetchStats();
+    fetchHeroBanners();
   }, []);
 
   const fetchItems = async () => {
@@ -47,31 +105,135 @@ const AdminPanel: React.FC = () => {
     }
   };
 
-  const handleFileUpload = async (file: File) => {
+  const fetchStats = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('store_items')
+        .select('*');
+
+      if (error) throw error;
+      
+      const today = new Date().toISOString().split('T')[0];
+      const totalDownloads = data?.reduce((sum, item) => sum + (item.download_count || 0), 0) || 0;
+      const averageRating = data?.reduce((sum, item) => sum + (item.average_rating || 0), 0) / (data?.length || 1) || 0;
+      const newItemsToday = data?.filter(item => item.created_at?.startsWith(today)).length || 0;
+      
+      const categoriesCount = data?.reduce((acc, item) => {
+        acc[item.category] = (acc[item.category] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
+      const typeDistribution = data?.reduce((acc, item) => {
+        acc[item.type] = (acc[item.type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
+      setStats({
+        totalItems: data?.length || 0,
+        totalDownloads,
+        averageRating,
+        newItemsToday,
+        categoriesCount,
+        typeDistribution
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  const handleImageUpload = async (file: File) => {
     if (!file) return null;
 
     setUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `uploads/${fileName}`;
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `images/${fileName}`;
+
+      console.log('Uploading image:', fileName);
 
       const { error: uploadError } = await supabase.storage
         .from('store-files')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        alert(`Upload failed: ${uploadError.message}`);
+        throw uploadError;
+      }
 
       const { data } = supabase.storage
         .from('store-files')
         .getPublicUrl(filePath);
 
+      console.log('Image uploaded successfully:', data.publicUrl);
       return data.publicUrl;
     } catch (error) {
-      console.error('Error uploading file:', error);
+      console.error('Error uploading image:', error);
+      alert(`Failed to upload image: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return null;
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!file) return null;
+
+    setUploadingFile(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `uploads/${fileName}`;
+
+      console.log('Uploading file:', fileName, 'Size:', file.size);
+
+      const { error: uploadError } = await supabase.storage
+        .from('store-files')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        alert(`Upload failed: ${uploadError.message}`);
+        throw uploadError;
+      }
+
+      // Record file info in database
+      const { error: dbError } = await supabase
+        .from('uploaded_files')
+        .insert([{
+          filename: fileName,
+          original_filename: file.name,
+          file_size: file.size,
+          mime_type: file.type,
+          storage_path: filePath,
+          uploaded_by: user?.id
+        }]);
+
+      if (dbError) {
+        console.error('Database error:', dbError);
+        // Don't fail the upload if DB insert fails
+      }
+
+      const { data } = supabase.storage
+        .from('store-files')
+        .getPublicUrl(filePath);
+
+      console.log('File uploaded successfully:', data.publicUrl);
+      alert('File uploaded successfully!');
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return null;
+    } finally {
+      setUploadingFile(false);
     }
   };
 
@@ -82,9 +244,10 @@ const AdminPanel: React.FC = () => {
     try {
       const itemData = {
         ...formData,
-        created_by: user?.id,
-        rating: Number(formData.rating)
+        created_by: user?.id
       };
+
+      let itemId: string;
 
       if (editingItem) {
         const { error } = await supabase
@@ -93,15 +256,27 @@ const AdminPanel: React.FC = () => {
           .eq('id', editingItem.id);
 
         if (error) throw error;
+        itemId = editingItem.id;
+        logAdminAction('UPDATE_ITEM', { itemId: editingItem.id, title: formData.title, adminEmail: user?.email });
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('store_items')
-          .insert([itemData]);
+          .insert([itemData])
+          .select('id')
+          .single();
 
         if (error) throw error;
+        itemId = data.id;
+        logAdminAction('CREATE_ITEM', { title: formData.title, type: formData.type, adminEmail: user?.email });
+      }
+
+      // Save screenshots if any
+      if (screenshots.length > 0) {
+        await saveScreenshotsToDatabase(itemId, 'store_item');
       }
 
       await fetchItems();
+      await fetchStats();
       resetForm();
     } catch (error) {
       console.error('Error saving item:', error);
@@ -114,13 +289,16 @@ const AdminPanel: React.FC = () => {
     if (!confirm('Are you sure you want to delete this item?')) return;
 
     try {
+      const itemToDelete = items.find(item => item.id === id);
       const { error } = await supabase
         .from('store_items')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+      logAdminAction('DELETE_ITEM', { itemId: id, title: itemToDelete?.title, adminEmail: user?.email });
       await fetchItems();
+      await fetchStats();
     } catch (error) {
       console.error('Error deleting item:', error);
     }
@@ -130,8 +308,6 @@ const AdminPanel: React.FC = () => {
     setFormData({
       title: '',
       developer: '',
-      rating: 0,
-      downloads: '0',
       image: '',
       category: '',
       price: 'Free',
@@ -140,28 +316,785 @@ const AdminPanel: React.FC = () => {
       download_link: '',
       file_path: ''
     });
+    setScreenshots([]);
     setShowAddForm(false);
     setEditingItem(null);
-    setUploadMethod('link');
+  };
+
+  // Screenshot upload functions
+  const handleScreenshotUpload = async (file: File) => {
+    if (!file) return null;
+
+    setUploadingScreenshot(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `screenshots/${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('store-files')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        alert(`Upload failed: ${uploadError.message}`);
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage
+        .from('store-files')
+        .getPublicUrl(fileName);
+
+      console.log('Screenshot uploaded successfully:', data.publicUrl);
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading screenshot:', error);
+      alert(`Failed to upload screenshot: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return null;
+    } finally {
+      setUploadingScreenshot(false);
+    }
+  };
+
+  const addScreenshot = async (file: File) => {
+    const url = await handleScreenshotUpload(file);
+    if (url) {
+      setScreenshots(prev => [...prev, url]);
+    }
+  };
+
+  const removeScreenshot = (index: number) => {
+    setScreenshots(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const saveScreenshotsToDatabase = async (itemId: string, itemType: 'store_item' | 'uploaded_file') => {
+    try {
+      // Remove existing screenshots for this item
+      await supabase
+        .from('item_screenshots')
+        .delete()
+        .eq('item_id', itemId)
+        .eq('item_type', itemType);
+
+      // Insert new screenshots
+      if (screenshots.length > 0) {
+        const screenshotData = screenshots.map((url, index) => ({
+          item_id: itemId,
+          item_type: itemType,
+          screenshot_url: url,
+          display_order: index
+        }));
+
+        const { error } = await supabase
+          .from('item_screenshots')
+          .insert(screenshotData);
+
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error saving screenshots:', error);
+      alert('Failed to save screenshots');
+    }
   };
 
   const startEdit = (item: StoreItem) => {
     setFormData({
       title: item.title,
       developer: item.developer,
-      rating: item.rating,
-      downloads: item.downloads,
       image: item.image,
       category: item.category,
       price: item.price,
       description: item.description,
-      type: item.type,
+      type: item.type || 'games',
       download_link: item.download_link || '',
       file_path: item.file_path || ''
     });
     setEditingItem(item);
+    loadItemScreenshots(item.id);
     setShowAddForm(true);
+    setActiveTab('items');
   };
+
+  const loadItemScreenshots = async (itemId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('item_screenshots')
+        .select('screenshot_url')
+        .eq('item_id', itemId)
+        .eq('item_type', 'store_item')
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      
+      const screenshotUrls = data?.map(s => s.screenshot_url) || [];
+      setScreenshots(screenshotUrls);
+    } catch (error) {
+      console.error('Error loading screenshots:', error);
+      setScreenshots([]);
+    }
+  };
+
+  const filteredItems = items.filter(item => {
+    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.developer.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
+    const matchesType = filterType === 'all' || item.type === filterType;
+    return matchesSearch && matchesCategory && matchesType;
+  });
+
+  const categories = [...new Set(items.map(item => item.category))];
+
+  // Hero Banner Functions
+  const fetchHeroBanners = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('hero_banners')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      setHeroBanners(data || []);
+    } catch (error) {
+      console.error('Error fetching hero banners:', error);
+    }
+  };
+
+  const handleHeroSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      if (editingHero) {
+        const { error } = await supabase
+          .from('hero_banners')
+          .update(heroFormData)
+          .eq('id', editingHero.id);
+
+        if (error) throw error;
+        await logAdminAction('Updated hero banner', editingHero.id);
+      } else {
+        const { error } = await supabase
+          .from('hero_banners')
+          .insert([heroFormData]);
+
+        if (error) throw error;
+        await logAdminAction('Created hero banner', heroFormData.title);
+      }
+
+      fetchHeroBanners();
+      resetHeroForm();
+    } catch (error) {
+      console.error('Error saving hero banner:', error);
+      alert('Failed to save hero banner');
+    }
+  };
+
+  const deleteHeroBanner = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this hero banner?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('hero_banners')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      fetchHeroBanners();
+      await logAdminAction('Deleted hero banner', id);
+    } catch (error) {
+      console.error('Error deleting hero banner:', error);
+      alert('Failed to delete hero banner');
+    }
+  };
+
+  const resetHeroForm = () => {
+    setHeroFormData({
+      title: '',
+      subtitle: '',
+      description: '',
+      image_url: '',
+      link_url: '',
+      link_text: 'Learn More',
+      banner_type: 'promotion',
+      is_active: true,
+      display_order: 0
+    });
+    setShowHeroForm(false);
+    setEditingHero(null);
+  };
+
+  const startEditHero = (hero: any) => {
+    setHeroFormData(hero);
+    setEditingHero(hero);
+    setShowHeroForm(true);
+  };
+
+  const toggleHeroBannerStatus = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('hero_banners')
+        .update({ is_active: !currentStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      fetchHeroBanners();
+      await logAdminAction(`${!currentStatus ? 'Activated' : 'Deactivated'} hero banner`, id);
+    } catch (error) {
+      console.error('Error updating hero banner status:', error);
+      alert('Failed to update banner status');
+    }
+  };
+
+  const StatCard = ({ title, value, icon: Icon, color, subtitle }: {
+    title: string;
+    value: string | number;
+    icon: any;
+    color: string;
+    subtitle?: string;
+  }) => (
+    <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-600">{title}</p>
+          <p className={`text-2xl font-bold ${color}`}>{value}</p>
+          {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
+        </div>
+        <Icon className={`w-8 h-8 ${color}`} />
+      </div>
+    </div>
+  );
+
+  const DashboardView = () => (
+    <div className="space-y-6">
+      {/* Admin Access Info */}
+      <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+              <Settings className="w-5 h-5 text-green-600" />
+            </div>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-green-800">Admin Access Active</h3>
+            <p className="text-green-700">
+              Logged in as: <span className="font-medium">{user?.email}</span>
+            </p>
+            <p className="text-sm text-green-600 mt-1">
+              You have full administrative privileges for this store.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard
+          title="Total Items"
+          value={stats.totalItems}
+          icon={Package}
+          color="text-blue-600"
+        />
+        <StatCard
+          title="Total Downloads"
+          value={stats.totalDownloads.toLocaleString()}
+          icon={Download}
+          color="text-green-600"
+        />
+        <StatCard
+          title="Average Rating"
+          value={stats.averageRating.toFixed(1)}
+          icon={Star}
+          color="text-yellow-600"
+          subtitle="out of 5.0"
+        />
+        <StatCard
+          title="New Today"
+          value={stats.newItemsToday}
+          icon={TrendingUp}
+          color="text-purple-600"
+        />
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button
+            onClick={() => {
+              setActiveTab('items');
+              setShowAddForm(true);
+            }}
+            className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg font-medium flex items-center space-x-2 transition-colors duration-200"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Add New Item</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('items')}
+            className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg font-medium flex items-center space-x-2 transition-colors duration-200"
+          >
+            <Eye className="w-5 h-5" />
+            <span>Manage Items</span>
+          </button>
+          <button
+            onClick={() => {
+              fetchItems();
+              fetchStats();
+            }}
+            className="bg-gray-600 hover:bg-gray-700 text-white p-4 rounded-lg font-medium flex items-center space-x-2 transition-colors duration-200"
+          >
+            <RefreshCw className="w-5 h-5" />
+            <span>Refresh Data</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Category Distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold mb-4">Categories</h3>
+          <div className="space-y-2">
+            {Object.entries(stats.categoriesCount).map(([category, count]) => (
+              <div key={category} className="flex justify-between items-center">
+                <span className="text-gray-600 capitalize">{category}</span>
+                <span className="font-medium">{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold mb-4">Type Distribution</h3>
+          <div className="space-y-2">
+            {Object.entries(stats.typeDistribution).map(([type, count]) => (
+              <div key={type} className="flex justify-between items-center">
+                <span className="text-gray-600 capitalize">{type}</span>
+                <span className="font-medium">{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Items */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-semibold mb-4">Recent Items</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left py-2">Title</th>
+                <th className="text-left py-2">Developer</th>
+                <th className="text-left py-2">Type</th>
+                <th className="text-left py-2">Rating</th>
+                <th className="text-left py-2">Downloads</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.slice(0, 5).map((item) => (
+                <tr key={item.id} className="border-b hover:bg-gray-50">
+                  <td className="py-2 font-medium">{item.title}</td>
+                  <td className="py-2 text-gray-600">{item.developer}</td>
+                  <td className="py-2">
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm capitalize">
+                      {item.type}
+                    </span>
+                  </td>
+                  <td className="py-2">
+                    <div className="flex items-center">
+                      <Star className="w-4 h-4 text-yellow-400 mr-1" />
+                      {item.rating}
+                    </div>
+                  </td>
+                  <td className="py-2">{item.downloads}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const ItemsView = () => (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+        <div className="flex items-center space-x-4">
+          <h2 className="text-2xl font-bold text-gray-900">Manage Items</h2>
+          <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm">
+            {filteredItems.length} items
+          </span>
+        </div>
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors duration-200"
+        >
+          <Plus className="w-5 h-5" />
+          <span>Add New Item</span>
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative">
+            <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search items..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+          </div>
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          >
+            <option value="all">All Categories</option>
+            {categories.map(category => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          >
+            <option value="all">All Types</option>
+            <option value="games">Games</option>
+            <option value="apps">Apps</option>
+            <option value="websites">Websites</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Items Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredItems.map((item) => (
+          <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+            <img
+              src={item.image}
+              alt={item.title}
+              className="w-full h-48 object-cover"
+            />
+            <div className="p-4">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="font-semibold text-lg truncate">{item.title}</h3>
+                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                  item.type === 'games' ? 'bg-purple-100 text-purple-800' :
+                  item.type === 'apps' ? 'bg-blue-100 text-blue-800' :
+                  'bg-green-100 text-green-800'
+                }`}>
+                  {item.type}
+                </span>
+              </div>
+              <p className="text-gray-600 text-sm mb-2">{item.developer}</p>
+              <p className="text-gray-500 text-sm mb-3 line-clamp-2">{item.description}</p>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center">
+                  <Star className="w-4 h-4 text-yellow-400 mr-1" />
+                  <span className="text-sm">{item.rating}</span>
+                </div>
+                <span className="text-sm text-gray-500">{item.downloads} downloads</span>
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => startEdit(item)}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded font-medium flex items-center justify-center space-x-1 transition-colors duration-200"
+                >
+                  <Edit className="w-4 h-4" />
+                  <span>Edit</span>
+                </button>
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded font-medium flex items-center justify-center space-x-1 transition-colors duration-200"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {filteredItems.length === 0 && (
+        <div className="text-center py-12">
+          <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No items found</h3>
+          <p className="text-gray-500">Try adjusting your search or filters</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const HeroBannersView = () => (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+        <div className="flex items-center space-x-4">
+          <h2 className="text-2xl font-bold text-gray-900">Hero Banners</h2>
+          <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm">
+            {heroBanners.length} banners
+          </span>
+        </div>
+        <button
+          onClick={() => setShowHeroForm(true)}
+          className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors duration-200"
+        >
+          <Plus className="w-5 h-5" />
+          <span>Add Hero Banner</span>
+        </button>
+      </div>
+
+      {/* Hero Banners Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {heroBanners.map((banner) => (
+          <div key={banner.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+            {/* Banner Preview */}
+            <div className="relative h-48 bg-cover bg-center" style={{ backgroundImage: `url(${banner.image_url})` }}>
+              <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+              <div className="absolute top-4 left-4">
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  banner.banner_type === 'app' ? 'bg-blue-600 text-white' :
+                  banner.banner_type === 'sponsor' ? 'bg-purple-600 text-white' :
+                  'bg-green-600 text-white'
+                }`}>
+                  {banner.banner_type}
+                </span>
+              </div>
+              <div className="absolute top-4 right-4">
+                <button
+                  onClick={() => toggleHeroBannerStatus(banner.id, banner.is_active)}
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    banner.is_active ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'
+                  }`}
+                >
+                  {banner.is_active ? 'Active' : 'Inactive'}
+                </button>
+              </div>
+              <div className="absolute bottom-4 left-4 right-4 text-white">
+                <h3 className="text-lg font-bold mb-1">{banner.title}</h3>
+                {banner.subtitle && <p className="text-sm opacity-90">{banner.subtitle}</p>}
+              </div>
+            </div>
+
+            {/* Banner Details */}
+            <div className="p-4">
+              {banner.description && (
+                <p className="text-gray-600 text-sm mb-3 line-clamp-2">{banner.description}</p>
+              )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <span>Order: {banner.display_order}</span>
+                  {banner.link_url && (
+                    <span className="text-blue-600">• Has Link</span>
+                  )}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => startEditHero(banner)}
+                    className="text-blue-600 hover:text-blue-800 p-1 rounded"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => deleteHeroBanner(banner.id)}
+                    className="text-red-600 hover:text-red-800 p-1 rounded"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Empty State */}
+      {heroBanners.length === 0 && (
+        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <TrendingUp className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-xl font-medium text-gray-900 mb-2">No Hero Banners</h3>
+          <p className="text-gray-500 mb-4">Create your first promotional banner to get started</p>
+          <button
+            onClick={() => setShowHeroForm(true)}
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium"
+          >
+            Create Hero Banner
+          </button>
+        </div>
+      )}
+
+      {/* Hero Banner Form Modal */}
+      {showHeroForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-gray-900">
+                  {editingHero ? 'Edit Hero Banner' : 'Add Hero Banner'}
+                </h3>
+                <button
+                  onClick={resetHeroForm}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleHeroSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Title *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={heroFormData.title}
+                    onChange={(e) => setHeroFormData({...heroFormData, title: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Enter banner title"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Subtitle
+                  </label>
+                  <input
+                    type="text"
+                    value={heroFormData.subtitle}
+                    onChange={(e) => setHeroFormData({...heroFormData, subtitle: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Enter banner subtitle"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={heroFormData.description}
+                    onChange={(e) => setHeroFormData({...heroFormData, description: e.target.value})}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Enter banner description"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Image URL *
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    value={heroFormData.image_url}
+                    onChange={(e) => setHeroFormData({...heroFormData, image_url: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="https://example.com/banner-image.jpg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Link URL
+                  </label>
+                  <input
+                    type="url"
+                    value={heroFormData.link_url}
+                    onChange={(e) => setHeroFormData({...heroFormData, link_url: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="https://example.com (optional)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Link Text
+                  </label>
+                  <input
+                    type="text"
+                    value={heroFormData.link_text}
+                    onChange={(e) => setHeroFormData({...heroFormData, link_text: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Learn More"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Banner Type
+                    </label>
+                    <select
+                      value={heroFormData.banner_type}
+                      onChange={(e) => setHeroFormData({...heroFormData, banner_type: e.target.value as any})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    >
+                      <option value="promotion">Promotion</option>
+                      <option value="app">App</option>
+                      <option value="sponsor">Sponsor</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Display Order
+                    </label>
+                    <input
+                      type="number"
+                      value={heroFormData.display_order}
+                      onChange={(e) => setHeroFormData({...heroFormData, display_order: parseInt(e.target.value)})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="is_active"
+                    checked={heroFormData.is_active}
+                    onChange={(e) => setHeroFormData({...heroFormData, is_active: e.target.checked})}
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="is_active" className="ml-2 block text-sm text-gray-900">
+                    Active (visible on website)
+                  </label>
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={resetHeroForm}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200"
+                  >
+                    {editingHero ? 'Update Banner' : 'Create Banner'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   if (loading && items.length === 0) {
     return (
@@ -172,328 +1105,442 @@ const AdminPanel: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors duration-200"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Add New Item</span>
-          </button>
-        </div>
-
-        {/* Add/Edit Form */}
-        {showAddForm && (
-          <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">
-                {editingItem ? 'Edit Item' : 'Add New Item'}
-              </h2>
+    <div className="min-h-screen bg-gray-50">
+      {/* Navigation */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <h1 className="text-2xl font-bold text-gray-900">Admin Panel</h1>
+            <div className="flex items-center space-x-1">
               <button
-                onClick={resetForm}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                onClick={() => setActiveTab('dashboard')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                  activeTab === 'dashboard'
+                    ? 'bg-green-100 text-green-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
               >
-                <X className="w-5 h-5 text-gray-500" />
+                <BarChart3 className="w-4 h-4 inline mr-2" />
+                Dashboard
+              </button>
+              <button
+                onClick={() => setActiveTab('items')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                  activeTab === 'items'
+                    ? 'bg-green-100 text-green-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Database className="w-4 h-4 inline mr-2" />
+                Items
+              </button>
+              <button
+                onClick={() => setActiveTab('analytics')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                  activeTab === 'analytics'
+                    ? 'bg-green-100 text-green-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Activity className="w-4 h-4 inline mr-2" />
+                Analytics
+              </button>
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                  activeTab === 'users'
+                    ? 'bg-green-100 text-green-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Users className="w-4 h-4 inline mr-2" />
+                Users
+              </button>
+              <button
+                onClick={() => setActiveTab('hero')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                  activeTab === 'hero'
+                    ? 'bg-green-100 text-green-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <TrendingUp className="w-4 h-4 inline mr-2" />
+                Hero Banners
+              </button>
+              <button
+                onClick={() => setActiveTab('settings')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                  activeTab === 'settings'
+                    ? 'bg-green-100 text-green-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Settings className="w-4 h-4 inline mr-2" />
+                Settings
+              </button>
+              <button
+                onClick={() => setActiveTab('debug')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                  activeTab === 'debug'
+                    ? 'bg-red-100 text-red-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Activity className="w-4 h-4 inline mr-2" />
+                Debug
               </button>
             </div>
+          </div>
+        </div>
+      </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Title *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  />
-                </div>
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeTab === 'dashboard' && <DashboardView />}
+        {activeTab === 'items' && <ItemsView />}
+        {activeTab === 'hero' && <HeroBannersView />}
+        {activeTab === 'analytics' && (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-medium text-gray-900 mb-2">Analytics</h3>
+            <p className="text-gray-500">Advanced analytics features coming soon!</p>
+          </div>
+        )}
+        {activeTab === 'users' && (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-medium text-gray-900 mb-2">User Management</h3>
+            <p className="text-gray-500">User management features coming soon!</p>
+          </div>
+        )}
+        {activeTab === 'settings' && (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <Settings className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-medium text-gray-900 mb-2">Settings</h3>
+            <p className="text-gray-500">System settings coming soon!</p>
+          </div>
+        )}
+        {activeTab === 'debug' && <StorageTest />}
+      </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Developer *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.developer}
-                    onChange={(e) => setFormData({ ...formData, developer: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Type *
-                  </label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'games' | 'apps' | 'websites' })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  >
-                    <option value="games">Games</option>
-                    <option value="apps">Apps</option>
-                    <option value="websites">Websites</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rating (0-5)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="5"
-                    step="0.1"
-                    value={formData.rating}
-                    onChange={(e) => setFormData({ ...formData, rating: Number(e.target.value) })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Downloads
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.downloads}
-                    onChange={(e) => setFormData({ ...formData, downloads: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="e.g., 1M+, 500K+"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Price
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Free, $9.99, etc."
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Image URL *
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.image}
-                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  />
-                </div>
+      {/* Add/Edit Form Modal */}
+      {showAddForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {editingItem ? 'Edit Item' : 'Add New Item'}
+                </h2>
+                <button
+                  onClick={resetForm}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description *
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  required
-                />
-              </div>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Title *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
 
-              {/* Upload Method Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-4">
-                  Upload Method
-                </label>
-                <div className="flex space-x-4 mb-4">
-                  <button
-                    type="button"
-                    onClick={() => setUploadMethod('link')}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors duration-200 ${
-                      uploadMethod === 'link'
-                        ? 'bg-green-100 border-green-500 text-green-700'
-                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Link className="w-4 h-4" />
-                    <span>Download Link</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUploadMethod('upload')}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors duration-200 ${
-                      uploadMethod === 'upload'
-                        ? 'bg-green-100 border-green-500 text-green-700'
-                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span>Direct Upload</span>
-                  </button>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Developer *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.developer}
+                      onChange={(e) => setFormData({ ...formData, developer: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Type *
+                    </label>
+                    <select
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value as 'games' | 'apps' | 'websites' })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      required
+                    >
+                      <option value="games">Games</option>
+                      <option value="apps">Apps</option>
+                      <option value="websites">Websites</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="e.g., Action, Productivity, Entertainment"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Price
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Free, $9.99, etc."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Image *
+                    </label>
+                    <div className="space-y-3">
+                      <input
+                        type="url"
+                        value={formData.image}
+                        onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="https://example.com/image.jpg"
+                        required
+                      />
+                      <div className="text-center text-gray-500 text-sm">OR</div>
+                      <div className="relative">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const url = await handleImageUpload(file);
+                              if (url) {
+                                setFormData({ ...formData, image: url });
+                              }
+                            }
+                          }}
+                          className="hidden"
+                          id="image-upload"
+                        />
+                        <label
+                          htmlFor="image-upload"
+                          className={`w-full flex items-center justify-center px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 transition-colors duration-200 ${
+                            uploading ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                        >
+                          {uploading ? (
+                            <div className="flex items-center space-x-2">
+                              <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                              <span className="text-sm text-gray-600">Uploading...</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <Upload className="w-4 h-4 text-gray-600" />
+                              <span className="text-sm text-gray-600">Upload Image</span>
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {uploadMethod === 'link' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description *
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={4}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Describe the item..."
+                    required
+                  />
+                </div>
+
+                {/* Screenshots Section */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Demo Images / Screenshots
+                  </label>
+                  <p className="text-sm text-gray-500 mb-3">
+                    Upload multiple screenshots to showcase your app or website (up to 8 images)
+                  </p>
+                  
+                  {/* Screenshot Upload Area */}
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-green-500 transition-colors duration-200">
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={async (e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (files.length > 0) {
+                            for (const file of files) {
+                              if (screenshots.length >= 8) {
+                                alert('Maximum 8 screenshots allowed');
+                                break;
+                              }
+                              await addScreenshot(file);
+                            }
+                          }
+                        }}
+                        className="hidden"
+                        id="screenshot-upload"
+                      />
+                      <label
+                        htmlFor="screenshot-upload"
+                        className={`w-full flex flex-col items-center justify-center py-6 cursor-pointer ${
+                          uploadingScreenshot ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {uploadingScreenshot ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                            <span className="text-gray-600">Uploading screenshot...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                            <span className="text-gray-600 font-medium">Click to upload screenshots</span>
+                            <span className="text-sm text-gray-500 mt-1">PNG, JPG, WEBP up to 10MB each</span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Screenshot Grid */}
+                  {screenshots.length > 0 && (
+                    <div className="mt-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {screenshots.map((screenshot, index) => (
+                          <div key={index} className="relative group">
+                            <img
+                              src={screenshot}
+                              alt={`Screenshot ${index + 1}`}
+                              className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeScreenshot(index)}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                            >
+                              ×
+                            </button>
+                            <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                              {index + 1}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-sm text-gray-500 mt-2">
+                        {screenshots.length}/8 screenshots uploaded
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Download Link
+                  </label>
                   <input
                     type="url"
                     value={formData.download_link}
                     onChange={(e) => setFormData({ ...formData, download_link: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Enter download link"
+                    placeholder="https://example.com/download"
                   />
-                ) : (
-                  <div>
-                    <input
-                      type="file"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const url = await handleFileUpload(file);
-                          if (url) {
-                            setFormData({ ...formData, file_path: url });
+                  <div className="mt-3">
+                    <div className="text-center text-gray-500 text-sm mb-2">OR Upload File</div>
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept=".apk,.exe,.dmg,.zip,.rar,.7z,.tar,.gz,.app,.deb,.rpm,.msi"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const url = await handleFileUpload(file);
+                            if (url) {
+                              setFormData({ ...formData, file_path: url, download_link: url });
+                            }
                           }
-                        }
-                      }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    />
-                    {uploading && (
-                      <p className="text-sm text-gray-600 mt-2">Uploading file...</p>
-                    )}
+                        }}
+                        className="hidden"
+                        id="file-upload"
+                      />
+                      <label
+                        htmlFor="file-upload"
+                        className={`w-full flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 transition-colors duration-200 ${
+                          uploadingFile ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {uploadingFile ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                            <span className="text-sm text-gray-600">Uploading file...</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center space-y-2">
+                            <Upload className="w-6 h-6 text-gray-600" />
+                            <span className="text-sm text-gray-600 font-medium">Upload App/Game File</span>
+                            <span className="text-xs text-gray-500">APK, EXE, DMG, ZIP, etc.</span>
+                          </div>
+                        )}
+                      </label>
+                    </div>
                     {formData.file_path && (
-                      <p className="text-sm text-green-600 mt-2">File uploaded successfully!</p>
+                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
+                        ✓ File uploaded successfully
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
+                </div>
 
-              <div className="flex space-x-4">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors duration-200"
-                >
-                  <Save className="w-5 h-5" />
-                  <span>{editingItem ? 'Update' : 'Save'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Items List */}
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Store Items ({items.length})</h2>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Item
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Rating
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Downloads
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {items.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <img
-                          src={item.image}
-                          alt={item.title}
-                          className="w-12 h-12 rounded-lg object-cover mr-4"
-                        />
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{item.title}</div>
-                          <div className="text-sm text-gray-500">{item.developer}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {item.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {item.rating}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {item.downloads}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => startEdit(item)}
-                          className="text-green-600 hover:text-green-900 p-2 hover:bg-green-100 rounded-full transition-colors duration-200"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="text-red-600 hover:text-red-900 p-2 hover:bg-red-100 rounded-full transition-colors duration-200"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {items.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No items found. Add your first item!</p>
+                <div className="flex justify-end space-x-4 pt-6 border-t">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center space-x-2 transition-colors duration-200 disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{editingItem ? 'Update' : 'Create'} Item</span>
+                  </button>
+                </div>
+              </form>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { isUserAdmin } from '../lib/adminUtils';
 
 interface AuthContextType {
   user: User | null;
@@ -27,7 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const isAdmin = user?.email === 'yashpatil575757@gmail.com';
+  const isAdmin = isUserAdmin(user?.email);
 
   useEffect(() => {
     // Get initial session

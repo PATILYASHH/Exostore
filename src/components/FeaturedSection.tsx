@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
+import HeroSection from './HeroSection';
 
 interface FeaturedItem {
   id: string;
@@ -17,6 +18,11 @@ interface FeaturedSectionProps {
 const FeaturedSection: React.FC<FeaturedSectionProps> = ({ title, items }) => {
   return (
     <section className="mb-12">
+      {/* Hero Section - Big promotional banner */}
+      <div className="mb-12">
+        <HeroSection />
+      </div>
+
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
         <button className="flex items-center space-x-1 text-green-600 hover:text-green-700 font-medium transition-colors duration-200">

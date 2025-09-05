@@ -45,24 +45,32 @@ CREATE TABLE IF NOT EXISTS store_items (
 
 ALTER TABLE store_items ENABLE ROW LEVEL SECURITY;
 
--- Public can read all store items
-CREATE POLICY "Anyone can read store items"
-  ON store_items
-  FOR SELECT
-  TO public
-  USING (true);
+-- Drop and recreate policies to avoid conflicts
+DO $$ 
+BEGIN
+  -- Drop existing policies if they exist
+  DROP POLICY IF EXISTS "Anyone can read store items" ON store_items;
+  DROP POLICY IF EXISTS "Admin can manage store items" ON store_items;
+  
+  -- Public can read all store items
+  CREATE POLICY "Anyone can read store items"
+    ON store_items
+    FOR SELECT
+    TO public
+    USING (true);
 
--- Only admin can insert/update/delete store items
-CREATE POLICY "Admin can manage store items"
-  ON store_items
-  FOR ALL
-  TO authenticated
-  USING (
-    auth.jwt() ->> 'email' = 'yashpatil575757@gmail.com'
-  )
-  WITH CHECK (
-    auth.jwt() ->> 'email' = 'yashpatil575757@gmail.com'
-  );
+  -- Only admin can insert/update/delete store items
+  CREATE POLICY "Admin can manage store items"
+    ON store_items
+    FOR ALL
+    TO authenticated
+    USING (
+      auth.jwt() ->> 'email' = 'yashpatil575757@gmail.com'
+    )
+    WITH CHECK (
+      auth.jwt() ->> 'email' = 'yashpatil575757@gmail.com'
+    );
+END $$;
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -73,8 +81,12 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Trigger to automatically update updated_at
-CREATE TRIGGER update_store_items_updated_at
-  BEFORE UPDATE ON store_items
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+-- Drop and recreate trigger to avoid conflicts
+DO $$ 
+BEGIN
+  DROP TRIGGER IF EXISTS update_store_items_updated_at ON store_items;
+  CREATE TRIGGER update_store_items_updated_at
+    BEFORE UPDATE ON store_items
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+END $$;

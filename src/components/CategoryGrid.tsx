@@ -5,10 +5,12 @@ import { StoreItem } from '../lib/supabase';
 interface CategoryGridProps {
   items: StoreItem[];
   category: string;
+  onStatsUpdate?: () => void;
+  onItemClick?: (item: StoreItem) => void;
 }
 
-const CategoryGrid: React.FC<CategoryGridProps> = ({ items, category }) => {
-  const filteredItems = category === 'all' ? items : items.filter(item => item.type === category);
+const CategoryGrid: React.FC<CategoryGridProps> = ({ items, category, onStatsUpdate, onItemClick }) => {
+  const filteredItems = category === 'all' ? items : items.filter(item => item.category === category);
 
   if (filteredItems.length === 0) {
     return (
@@ -21,7 +23,12 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ items, category }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {filteredItems.map((item) => (
-        <ItemCard key={item.id} {...item} type={item.type} />
+        <ItemCard 
+          key={item.id} 
+          {...item} 
+          onStatsUpdate={onStatsUpdate}
+          onItemClick={onItemClick}
+        />
       ))}
     </div>
   );

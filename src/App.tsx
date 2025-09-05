@@ -5,15 +5,41 @@ import AuthModal from './components/AuthModal';
 import AdminPanel from './components/AdminPanel';
 import FeaturedSection from './components/FeaturedSection';
 import CategoryGrid from './components/CategoryGrid';
-import { featuredItems } from './data/storeData';
+import ItemDetailPage from './components/ItemDetailPage';
+import DatabaseDebug from './components/DatabaseDebug';
 import { supabase, StoreItem } from './lib/supabase';
+
+// Temporary inline featured items to bypass import issues
+const featuredItems = [
+  {
+    id: '1',
+    title: 'Your Uploads',
+    subtitle: 'Apps and games you have uploaded',
+    image: 'https://images.pexels.com/photos/257736/pexels-photo-257736.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop',
+    gradient: 'bg-gradient-to-br from-purple-600 to-pink-600'
+  },
+  {
+    id: '2',
+    title: 'Recent Uploads',
+    subtitle: 'Latest files you have added',
+    image: 'https://images.pexels.com/photos/669610/pexels-photo-669610.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop',
+    gradient: 'bg-gradient-to-br from-blue-600 to-cyan-600'
+  },
+  {
+    id: '3',
+    title: 'Popular Uploads',
+    subtitle: 'Most downloaded uploaded files',
+    image: 'https://images.pexels.com/photos/374559/pexels-photo-374559.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop',
+    gradient: 'bg-gradient-to-br from-green-600 to-emerald-600'
+  }
+];
 
 const AppContent: React.FC = () => {
   const { user, loading, isAdmin } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [storeItems, setStoreItems] = useState<StoreItem[]>([]);
-  const [itemsLoading, setItemsLoading] = useState(true);
+  const [uploadedFiles, setUploadedFiles] = useState<StoreItem[]>([]);
+  const [selectedItem, setSelectedItem] = useState<StoreItem | null>(null);
 
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,9 +49,8 @@ const AppContent: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
-    if (!loading && !user) {
-      setShowAuthModal(true);
-    }
+    // Don't force auth modal - let users browse freely
+    // Auth modal will only show when they try to rate/comment
   }, [loading, user]);
 
   const fetchStoreItems = async () => {
@@ -36,16 +61,45 @@ const AppContent: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setStoreItems(data || []);
+      setUploadedFiles(data || []);
     } catch (error) {
       console.error('Error fetching store items:', error);
-    } finally {
-      setItemsLoading(false);
     }
   };
 
+  const handleStatsUpdate = () => {
+    fetchStoreItems();
+  };
+
+  const handleItemClick = (item: StoreItem) => {
+    setSelectedItem(item);
+  };
+
+  const handleBackToStore = () => {
+    setSelectedItem(null);
+  };
+
+  // Convert store items - show ALL uploaded items from store_items table
+  const allItems = useMemo(() => {
+    // Return the store items directly since they're already in the correct format
+    return uploadedFiles.map(item => ({
+      ...item,
+      downloadUrl: item.download_link || '#',
+      isUploadedFile: true,
+      downloads: typeof item.downloads === 'string' ? parseInt(item.downloads) || 0 : item.downloads || 0,
+      download_count: typeof item.downloads === 'string' ? parseInt(item.downloads) || 0 : item.downloads || 0,
+      average_rating: item.rating || 0,
+      rating_count: 0 // Will be calculated from reviews
+    }));
+  }, [uploadedFiles]);
+
   const filteredItems = useMemo(() => {
-    let filtered = storeItems;
+    let filtered = allItems;
+
+    // Filter by category
+    if (activeCategory !== 'all') {
+      filtered = filtered.filter(item => item.category === activeCategory);
+    }
 
     // Filter by search query
     if (searchQuery.trim()) {
@@ -58,7 +112,7 @@ const AppContent: React.FC = () => {
     }
 
     return filtered;
-  }, [searchQuery]);
+  }, [allItems, activeCategory, searchQuery]);
 
   const getCategoryTitle = () => {
     switch (activeCategory) {
@@ -86,7 +140,7 @@ const AppContent: React.FC = () => {
     }
   };
 
-  if (loading || itemsLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -119,23 +173,71 @@ const AppContent: React.FC = () => {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Featured Section - Only show when not searching and on 'all' category */}
-        {!searchQuery && activeCategory === 'all' && (
-          <FeaturedSection title="Featured" items={featuredItems} />
-        )}
+        {selectedItem ? (
+          <ItemDetailPage 
+            item={selectedItem} 
+            onBack={handleBackToStore}
+          />
+        ) : (
+          <>
+            {/* Debug Section - Only show to admins */}
+            {isAdmin && <DatabaseDebug />}
 
-        {/* Category Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {searchQuery ? `Search results for "${searchQuery}"` : getCategoryTitle()}
-          </h1>
-          {!searchQuery && (
-            <p className="text-gray-600">{getCategoryDescription()}</p>
-          )}
-        </div>
+            {/* Featured Section - Only show when not searching and on 'all' category */}
+            {!searchQuery && activeCategory === 'all' && (
+              <FeaturedSection title="Featured" items={featuredItems} />
+            )}
 
-        {/* Items Grid */}
-        <CategoryGrid items={filteredItems} category={activeCategory} />
+            {/* Category Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                {searchQuery ? `Search results for "${searchQuery}"` : getCategoryTitle()}
+              </h1>
+              {!searchQuery && (
+                <p className="text-gray-600">{getCategoryDescription()}</p>
+              )}
+            </div>
+
+            {/* No Apps Message */}
+            {!searchQuery && filteredItems.length === 0 && (
+              <div className="text-center py-16">
+                <div className="mb-6">
+                  <div className="w-24 h-24 bg-gray-200 rounded-full mx-auto flex items-center justify-center">
+                    <span className="text-4xl">📱</span>
+                  </div>
+                </div>
+                <h3 className="text-2xl font-semibold text-gray-900 mb-4">No Apps Uploaded Yet</h3>
+                <p className="text-gray-600 max-w-md mx-auto mb-6">
+                  Your store is ready! Upload your first app using the admin panel to get started.
+                </p>
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowAdminPanel(true)}
+                    className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200"
+                  >
+                    Upload Your First App
+                  </button>
+                )}
+                {!isAdmin && !user && (
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200"
+                  >
+                    Sign In to Upload Apps
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Items Grid - Only show if there are items */}
+            {filteredItems.length > 0 && (
+              <CategoryGrid 
+                items={filteredItems} 
+                category={activeCategory} 
+                onStatsUpdate={handleStatsUpdate}
+                onItemClick={handleItemClick}
+              />
+            )}
 
         {/* No Results */}
         {searchQuery && filteredItems.length === 0 && (
@@ -153,9 +255,11 @@ const AppContent: React.FC = () => {
               onClick={() => setSearchQuery('')}
               className="mt-6 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200"
             >
-              Clear search
-            </button>
-          </div>
+            Clear search
+          </button>
+        </div>
+        )}
+          </>
         )}
       </main>
 
