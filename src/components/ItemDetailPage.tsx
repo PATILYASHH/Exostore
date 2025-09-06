@@ -210,6 +210,136 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
     }
   };
 
+  const handleShare = async () => {
+    const shareData = {
+      title: `${item.title} - Exostore`,
+      text: `Check out ${item.title} by ${item.developer} on Exostore!`,
+      url: window.location.href
+    };
+
+    try {
+      // Use Web Share API if available (mobile browsers)
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        // Show custom share options for desktop
+        showShareOptions(shareData);
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+      // Fallback: copy to clipboard
+      try {
+        await navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
+        alert('Link copied to clipboard!');
+      } catch (clipboardError) {
+        console.error('Clipboard error:', clipboardError);
+        alert('Unable to share. You can copy this URL manually: ' + window.location.href);
+      }
+    }
+  };
+
+  const showShareOptions = (shareData: { title: string; text: string; url: string }) => {
+    const encodedUrl = encodeURIComponent(shareData.url);
+    const encodedText = encodeURIComponent(shareData.text);
+    
+    const shareOptions = [
+      {
+        name: 'WhatsApp',
+        url: `https://wa.me/?text=${encodedText}%20${encodedUrl}`,
+        color: 'bg-green-500',
+        icon: '📱'
+      },
+      {
+        name: 'Twitter',
+        url: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
+        color: 'bg-blue-400',
+        icon: '🐦'
+      },
+      {
+        name: 'Facebook',
+        url: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+        color: 'bg-blue-600',
+        icon: '📘'
+      },
+      {
+        name: 'Copy Link',
+        url: '#',
+        color: 'bg-gray-600',
+        icon: '📋',
+        action: async () => {
+          try {
+            await navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
+            alert('Link copied to clipboard!');
+          } catch (error) {
+            // Fallback copy method for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = `${shareData.title}\n${shareData.text}\n${shareData.url}`;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert('Link copied to clipboard!');
+          }
+        }
+      }
+    ];
+
+    // Create share modal
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+    modal.innerHTML = `
+      <div class="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+        <h3 class="text-xl font-bold mb-2 text-gray-900">Share ${item.title}</h3>
+        <p class="text-gray-600 mb-6 text-sm">Share this app with your friends!</p>
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          ${shareOptions.map((option, index) => `
+            <button 
+              onclick="window.shareAction_${index}()" 
+              class="${option.color} text-white px-4 py-3 rounded-lg font-medium text-sm hover:opacity-90 transition-all duration-200 transform hover:scale-105 flex items-center justify-center space-x-2"
+            >
+              <span class="text-lg">${option.icon}</span>
+              <span>${option.name}</span>
+            </button>
+          `).join('')}
+        </div>
+        <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors duration-200">
+          Cancel
+        </button>
+      </div>
+    `;
+
+    // Add action handlers
+    shareOptions.forEach((option, index) => {
+      (window as any)[`shareAction_${index}`] = () => {
+        if (option.action) {
+          option.action();
+        } else if (option.url !== '#') {
+          window.open(option.url, '_blank', 'noopener,noreferrer');
+        }
+        modal.remove();
+        // Clean up global functions
+        delete (window as any)[`shareAction_${index}`];
+      };
+    });
+
+    document.body.appendChild(modal);
+
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+        // Clean up global functions
+        shareOptions.forEach((_, index) => {
+          delete (window as any)[`shareAction_${index}`];
+        });
+      }
+    });
+  };
+
   const startEditReview = () => {
     if (existingReview) {
       setUserRating(existingReview.rating);
@@ -300,109 +430,197 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-16">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
+          <div className="flex items-center h-14 sm:h-16">
             <button
               onClick={onBack}
-              className="flex items-center text-gray-600 hover:text-gray-900 mr-4"
+              className="flex items-center text-gray-600 hover:text-gray-900 mr-3 sm:mr-4 p-1 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <ArrowLeft className="w-5 h-5 mr-1" />
-              Back
+              <span className="hidden sm:inline">Back</span>
             </button>
-            <h1 className="text-xl font-semibold text-gray-900 truncate">{item.title}</h1>
+            <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate pr-2">{item.title}</h1>
+            
+            {/* Mobile Share Button in Header */}
+            <div className="ml-auto sm:hidden">
+              <button
+                onClick={handleShare}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <Share2 className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6 lg:space-y-8">
             {/* App Header */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-start space-x-6">
-                <img
-                  src={item.image}
-                  alt={item.title}
-                  className="w-24 h-24 rounded-2xl shadow-lg"
-                />
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">{item.title}</h1>
-                  <p className="text-lg text-gray-600 mb-3">{item.developer}</p>
-                  
-                  <div className="flex items-center space-x-6 mb-4">
-                    <div className="flex items-center space-x-2">
-                      {renderStars(Math.round(item.average_rating), 'md')}
-                      <span className="text-sm text-gray-600">
-                        {item.average_rating.toFixed(1)} ({item.rating_count} reviews)
+            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+              {/* Mobile Layout */}
+              <div className="block sm:hidden space-y-4">
+                <div className="flex items-start space-x-4">
+                  <img
+                    src={item.image}
+                    alt={item.title}
+                    className="w-20 h-20 rounded-xl shadow-lg flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <h1 className="text-xl font-bold text-gray-900 mb-1 line-clamp-2">{item.title}</h1>
+                    <p className="text-sm text-gray-600 mb-2">{item.developer}</p>
+                    <div className="flex items-center space-x-1 mb-2">
+                      {renderStars(Math.round(item.average_rating), 'sm')}
+                      <span className="text-xs text-gray-600 ml-1">
+                        {item.average_rating.toFixed(1)}
                       </span>
                     </div>
-                    <div className="flex items-center space-x-1 text-sm text-gray-600">
-                      <Download className="w-4 h-4" />
+                    <div className="flex items-center space-x-1 text-xs text-gray-600">
+                      <Download className="w-3 h-3" />
                       <span>{item.download_count || 0} downloads</span>
                     </div>
                   </div>
+                </div>
+                
+                {/* Mobile Action Buttons */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={handleDownload}
+                    disabled={downloading}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 flex items-center justify-center space-x-2 text-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>{downloading ? 'Downloading...' : hasDownloaded ? 'Download Again' : 'Download'}</span>
+                  </button>
+                  
+                  <button 
+                    onClick={handleShare}
+                    className="border border-gray-300 text-gray-700 px-4 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors duration-200 flex items-center justify-center space-x-2 text-sm"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span>Share</span>
+                  </button>
+                </div>
 
-                  <div className="flex items-center space-x-4">
+                {/* Mobile Rating Buttons */}
+                {user && (
+                  <div className="flex space-x-2">
                     <button
-                      onClick={handleDownload}
-                      disabled={downloading}
-                      className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 flex items-center space-x-2"
+                      onClick={() => {
+                        if (existingReview) {
+                          startEditReview();
+                        } else {
+                          setShowRatingModal(true);
+                        }
+                      }}
+                      className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors duration-200 flex items-center justify-center space-x-2 text-sm"
                     >
-                      <Download className="w-5 h-5" />
-                      <span>{downloading ? 'Downloading...' : hasDownloaded ? 'Download Again' : 'Download'}</span>
+                      <Star className="w-4 h-4" />
+                      <span>{existingReview ? 'Edit Review' : 'Rate'}</span>
                     </button>
-                    
-                    {user && (
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => {
-                            if (existingReview) {
-                              startEditReview();
-                            } else {
-                              setShowRatingModal(true);
-                            }
-                          }}
-                          className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2"
-                        >
-                          <Star className="w-5 h-5" />
-                          <span>{existingReview ? 'Edit Review' : 'Rate'}</span>
-                        </button>
-                        {existingReview && (
-                          <button
-                            onClick={deleteReview}
-                            className="border border-red-300 text-red-700 px-4 py-3 rounded-lg font-medium hover:bg-red-50 transition-colors duration-200"
-                          >
-                            Delete Review
-                          </button>
-                        )}
-                      </div>
+                    {existingReview && (
+                      <button
+                        onClick={deleteReview}
+                        className="border border-red-300 text-red-700 px-4 py-2 rounded-lg font-medium hover:bg-red-50 transition-colors duration-200 text-sm"
+                      >
+                        Delete
+                      </button>
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop Layout */}
+              <div className="hidden sm:block">
+                <div className="flex items-start space-x-6">
+                  <img
+                    src={item.image}
+                    alt={item.title}
+                    className="w-24 h-24 rounded-2xl shadow-lg"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{item.title}</h1>
+                    <p className="text-lg text-gray-600 mb-3">{item.developer}</p>
                     
-                    <button className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2">
-                      <Share2 className="w-5 h-5" />
-                      <span>Share</span>
-                    </button>
+                    <div className="flex items-center space-x-6 mb-4">
+                      <div className="flex items-center space-x-2">
+                        {renderStars(Math.round(item.average_rating), 'md')}
+                        <span className="text-sm text-gray-600">
+                          {item.average_rating.toFixed(1)} ({item.rating_count} reviews)
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-1 text-sm text-gray-600">
+                        <Download className="w-4 h-4" />
+                        <span>{item.download_count || 0} downloads</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-4 flex-wrap gap-2">
+                      <button
+                        onClick={handleDownload}
+                        disabled={downloading}
+                        className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 flex items-center space-x-2"
+                      >
+                        <Download className="w-5 h-5" />
+                        <span>{downloading ? 'Downloading...' : hasDownloaded ? 'Download Again' : 'Download'}</span>
+                      </button>
+                      
+                      {user && (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => {
+                              if (existingReview) {
+                                startEditReview();
+                              } else {
+                                setShowRatingModal(true);
+                              }
+                            }}
+                            className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2"
+                          >
+                            <Star className="w-5 h-5" />
+                            <span>{existingReview ? 'Edit Review' : 'Rate'}</span>
+                          </button>
+                          {existingReview && (
+                            <button
+                              onClick={deleteReview}
+                              className="border border-red-300 text-red-700 px-4 py-3 rounded-lg font-medium hover:bg-red-50 transition-colors duration-200"
+                            >
+                              Delete Review
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      
+                      <button 
+                        onClick={handleShare}
+                        className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2"
+                      >
+                        <Share2 className="w-5 h-5" />
+                        <span>Share</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Screenshots */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Screenshots & Demo Images</h2>
-                <span className="text-sm text-gray-500">{screenshots.length} image{screenshots.length !== 1 ? 's' : ''}</span>
+            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Screenshots & Demo Images</h2>
+                <span className="text-xs sm:text-sm text-gray-500">{screenshots.length} image{screenshots.length !== 1 ? 's' : ''}</span>
               </div>
               
               {screenshots.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {/* Main Image Display */}
                   <div className="relative">
                     <img
                       src={screenshots[currentImageIndex]}
                       alt={`Screenshot ${currentImageIndex + 1} of ${item.title}`}
-                      className="w-full h-96 object-cover rounded-lg shadow-sm"
+                      className="w-full h-48 sm:h-64 lg:h-96 object-cover rounded-lg shadow-sm"
                       onError={(e) => {
                         console.log('Image load error for:', screenshots[currentImageIndex]);
                         (e.target as HTMLImageElement).src = 'https://via.placeholder.com/800x400/e5e7eb/6b7280?text=Image+Not+Found';
@@ -414,21 +632,21 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
                       <>
                         <button
                           onClick={prevImage}
-                          className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
+                          className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-1.5 sm:p-2 rounded-full hover:bg-opacity-70 transition-all"
                         >
-                          <ChevronLeft className="w-5 h-5" />
+                          <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                         </button>
                         <button
                           onClick={nextImage}
-                          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-1.5 sm:p-2 rounded-full hover:bg-opacity-70 transition-all"
                         >
-                          <ChevronRight className="w-5 h-5" />
+                          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                         </button>
                       </>
                     )}
                     
                     {/* Image counter */}
-                    <div className="absolute bottom-4 right-4 bg-black bg-opacity-60 text-white px-3 py-1 rounded-full text-sm">
+                    <div className="absolute bottom-2 sm:bottom-4 right-2 sm:right-4 bg-black bg-opacity-60 text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
                       {currentImageIndex + 1} / {screenshots.length}
                     </div>
                     

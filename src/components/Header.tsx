@@ -131,6 +131,7 @@ const Header: React.FC<HeaderProps> = ({
                       {isAdmin && (
                         <button
                           onClick={() => {
+                            console.log('Desktop Admin panel button clicked!', { isAdmin, user: user?.email });
                             onShowAdmin();
                             setShowUserMenu(false);
                           }}
@@ -204,6 +205,7 @@ const Header: React.FC<HeaderProps> = ({
                       {isAdmin && (
                         <button
                           onClick={() => {
+                            console.log('Mobile Admin panel button clicked!', { isAdmin, user: user?.email });
                             onShowAdmin();
                             setShowUserMenu(false);
                           }}

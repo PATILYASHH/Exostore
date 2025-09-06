@@ -3,7 +3,9 @@ export const ADMIN_EMAIL = 'yashpatil575757@gmail.com';
 
 // Check if user has admin privileges
 export const isUserAdmin = (userEmail: string | undefined): boolean => {
-  return userEmail === ADMIN_EMAIL;
+  const result = userEmail === ADMIN_EMAIL;
+  console.log('Admin check:', { userEmail, ADMIN_EMAIL, isAdmin: result });
+  return result;
 };
 
 // Admin privilege levels

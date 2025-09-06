@@ -139,6 +139,16 @@ const AppContent: React.FC = () => {
     }
   };
 
+  // Debug: Add state monitoring
+  React.useEffect(() => {
+    console.log('Admin Panel State Changed:', { 
+      showAdminPanel, 
+      isAdmin, 
+      userEmail: user?.email,
+      loading 
+    });
+  }, [showAdminPanel, isAdmin, user?.email, loading]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -151,7 +161,8 @@ const AppContent: React.FC = () => {
   }
 
   if (showAdminPanel && isAdmin) {
-    return <AdminPanel />;
+    console.log('Rendering AdminPanel:', { showAdminPanel, isAdmin, user: user?.email });
+    return <AdminPanel onClose={() => setShowAdminPanel(false)} />;
   }
 
   return (
@@ -162,7 +173,10 @@ const AppContent: React.FC = () => {
         onCategoryChange={setActiveCategory}
         user={user}
         isAdmin={isAdmin}
-        onShowAdmin={() => setShowAdminPanel(true)}
+        onShowAdmin={() => {
+          console.log('onShowAdmin called!', { isAdmin, user: user?.email, currentShowAdminPanel: showAdminPanel });
+          setShowAdminPanel(true);
+        }}
         onShowAuth={() => setShowAuthModal(true)}
       />
 
@@ -274,16 +288,41 @@ const AppContent: React.FC = () => {
               {/* Debug Section - Only show to admins */}
               {isAdmin && (
                 <div className="mt-8">
-                  {/* Temporarily disabled to prevent database errors */}
-                  {/* <DatabaseDebug /> */}
+                  {/* Debug Admin Panel Access */}
                   <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-center space-x-2 mb-2">
-                      <span className="text-2xl">⚡</span>
-                      <strong className="text-blue-800">Admin Database Status</strong>
+                      <span className="text-2xl">🔧</span>
+                      <strong className="text-blue-800">Admin Debug Panel</strong>
                     </div>
-                    <p className="text-blue-700 text-sm">
-                      Database functionality is working. Screenshots table setup can be done manually in Supabase if needed for additional features.
+                    <p className="text-blue-700 text-sm mb-3">
+                      Admin Status: {isAdmin ? '✅ Admin Access Granted' : '❌ No Admin Access'}
                     </p>
+                    <p className="text-blue-700 text-sm mb-3">
+                      Current User: {user?.email || 'Not signed in'}
+                    </p>
+                    <p className="text-blue-700 text-sm mb-3">
+                      Admin Panel State: {showAdminPanel ? '🟢 Open' : '🔴 Closed'}
+                    </p>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => {
+                          console.log('Debug: Force opening admin panel');
+                          setShowAdminPanel(true);
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200"
+                      >
+                        🚀 Force Open Admin Panel
+                      </button>
+                      <button
+                        onClick={() => {
+                          console.log('Debug: Force closing admin panel');
+                          setShowAdminPanel(false);
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200"
+                      >
+                        ❌ Force Close Admin Panel
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
