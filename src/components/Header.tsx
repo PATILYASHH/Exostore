@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Settings, LogOut, Home, Grid3X3, Gamepad2, Monitor } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import PWAInstallButton from './PWAInstallButton';
 import navicon from '../icons/navicon.png';
 
 interface HeaderProps {
@@ -114,6 +115,9 @@ const Header: React.FC<HeaderProps> = ({
 
             {/* User Menu */}
             <div className="flex items-center space-x-4">
+              {/* PWA Install Button - Always visible on desktop */}
+              <PWAInstallButton />
+              
               {user ? (
                 <div className="relative" ref={userMenuRef}>
                   <button

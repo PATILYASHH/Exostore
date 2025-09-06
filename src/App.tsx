@@ -7,6 +7,8 @@ import AuthModal from './components/AuthModal';
 import AdminPanel from './components/AdminPanel';
 import FeaturedSection from './components/FeaturedSection';
 import CategoryGrid from './components/CategoryGrid';
+import PWAStatus from './components/PWAStatus';
+import InstallAppSection from './components/InstallAppSection';
 import { supabase, StoreItem } from './lib/supabase';
 
 // Temporary inline featured items to bypass import issues
@@ -247,6 +249,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <PWAStatus />
       <Header
         onSearchChange={setSearchQuery}
         activeCategory={activeCategory}
@@ -288,6 +291,11 @@ const AppContent: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Install App Section */}
+                <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
+                  <InstallAppSection />
+                </div>
 
                 <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-6 sm:py-8">
                   {/* Category Header */}
