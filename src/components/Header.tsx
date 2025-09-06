@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Settings, LogOut, Home, Grid3X3, Gamepad2, Monitor } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import navicon from '../icons/navicon.png';
 
 interface HeaderProps {
   onSearchChange: (query: string) => void;
@@ -63,8 +64,12 @@ const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-lg">E</span>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg">
+                <img 
+                  src={navicon} 
+                  alt="Exostore Logo" 
+                  className="w-10 h-10 object-contain rounded-xl"
+                />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Exostore</h1>
@@ -141,6 +146,21 @@ const Header: React.FC<HeaderProps> = ({
                           <span>Admin Panel</span>
                         </button>
                       )}
+                      {!isAdmin && user && (
+                        <button
+                          onClick={() => {
+                            console.log('Debug: Force opening admin panel for non-admin user');
+                            // Set the window flag for force-open
+                            (window as any).showAdminPanelForceOpen = true;
+                            onShowAdmin();
+                            setShowUserMenu(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-orange-700 hover:bg-orange-50 flex items-center space-x-2 border-t border-gray-100"
+                        >
+                          <Settings className="w-4 h-4" />
+                          <span>🔧 Debug Admin Panel</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           signOut();
@@ -173,8 +193,12 @@ const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center justify-between">
             {/* Logo */}
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-sm">E</span>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md">
+                <img 
+                  src={navicon} 
+                  alt="Exostore Logo" 
+                  className="w-8 h-8 object-contain rounded-lg"
+                />
               </div>
               <div>
                 <h1 className="text-lg font-bold text-gray-900">Exostore</h1>
@@ -213,6 +237,21 @@ const Header: React.FC<HeaderProps> = ({
                         >
                           <Settings className="w-4 h-4" />
                           <span>Admin Panel</span>
+                        </button>
+                      )}
+                      {!isAdmin && user && (
+                        <button
+                          onClick={() => {
+                            console.log('Debug: Force opening admin panel for non-admin user (mobile)');
+                            // Set the window flag for force-open
+                            (window as any).showAdminPanelForceOpen = true;
+                            onShowAdmin();
+                            setShowUserMenu(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-orange-700 hover:bg-orange-50 flex items-center space-x-2 border-t border-gray-100"
+                        >
+                          <Settings className="w-4 h-4" />
+                          <span>🔧 Debug Admin Panel</span>
                         </button>
                       )}
                       <button

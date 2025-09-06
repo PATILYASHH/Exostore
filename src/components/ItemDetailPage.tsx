@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Download, Star, Share2, Flag, User, Globe, Shield, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Download, Star, Share2, Flag, User, Globe, Shield, ExternalLink, ChevronLeft, ChevronRight, Github } from 'lucide-react';
 import { supabase, StoreItem } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -13,6 +13,7 @@ interface Review {
   user_id: string;
   rating: number;
   comment: string;
+  rating_type: 'store_item' | 'uploaded_file';
   created_at: string;
   updated_at?: string;
   user_email?: string;
@@ -95,11 +96,13 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
     if (!user) return;
     
     try {
+      const downloadType = item.isUploadedFile ? 'uploaded_file' : 'store_item';
       const { data, error } = await supabase
         .from('user_downloads')
         .select('id')
         .eq('user_id', user.id)
         .eq('item_id', item.id)
+        .eq('download_type', downloadType)
         .limit(1);
 
       if (error) throw error;
@@ -153,6 +156,16 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
       alert('Error downloading file');
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleViewCrossPlatform = () => {
+    const platformUrl = item.cross_platform_type === 'web' 
+      ? item.web_platform_url 
+      : item.app_platform_url;
+    
+    if (platformUrl) {
+      window.open(platformUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -410,6 +423,32 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
     );
   };
 
+  const getCategoryIcon = (category: string) => {
+    switch (category?.toLowerCase()) {
+      case 'games':
+        return <span className="text-purple-600">🎮</span>;
+      case 'websites':
+        return <Globe className="w-4 h-4" />;
+      case 'apps':
+        return <span className="text-blue-600">📱</span>;
+      default:
+        return <span className="text-gray-600">📦</span>;
+    }
+  };
+
+  const getCategoryColor = (category: string) => {
+    switch (category?.toLowerCase()) {
+      case 'games':
+        return 'bg-purple-100 text-purple-700 border-purple-200';
+      case 'websites':
+        return 'bg-green-100 text-green-700 border-green-200';
+      case 'apps':
+        return 'bg-blue-100 text-blue-700 border-blue-200';
+      default:
+        return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
+  };
+
   const nextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % screenshots.length);
   };
@@ -458,6 +497,25 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-4 sm:space-y-6 lg:space-y-8">
+            
+            {/* Cross-Platform Indicator */}
+            {item.is_cross_platform_card && (
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-4">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-2 rounded-full">
+                    <ExternalLink className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-purple-900">
+                      {item.cross_platform_type === 'web' ? 'Web Version' : 'App Version'}
+                    </h3>
+                    <p className="text-sm text-purple-700">
+                      This is the {item.cross_platform_type === 'web' ? 'web' : 'app'} version of a {item.original_category} originally available in our {item.original_category} section.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             {/* App Header */}
             <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
               {/* Mobile Layout */}
@@ -469,7 +527,24 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
                     className="w-20 h-20 rounded-xl shadow-lg flex-shrink-0"
                   />
                   <div className="flex-1 min-w-0">
-                    <h1 className="text-xl font-bold text-gray-900 mb-1 line-clamp-2">{item.title}</h1>
+                    <div className="flex items-start justify-between mb-1">
+                      <h1 className="text-xl font-bold text-gray-900 line-clamp-2 flex-1 pr-2">{item.title}</h1>
+                      {item.is_opensource && item.github_url && (
+                        <button
+                          onClick={() => window.open(item.github_url, '_blank', 'noopener,noreferrer')}
+                          className="github-badge bg-green-600 hover:bg-green-700 text-white p-2 rounded-lg transition-all duration-200 hover:scale-105 shadow-lg flex-shrink-0"
+                          title="View source code on GitHub"
+                        >
+                          <Github className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className={`inline-flex items-center space-x-1 text-xs font-medium px-2 py-1 rounded-full border ${getCategoryColor(item.category)}`}>
+                        {getCategoryIcon(item.category)}
+                        <span className="capitalize">{item.category}</span>
+                      </span>
+                    </div>
                     <p className="text-sm text-gray-600 mb-2">{item.developer}</p>
                     <div className="flex items-center space-x-1 mb-2">
                       {renderStars(Math.round(item.average_rating), 'sm')}
@@ -478,22 +553,40 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
                       </span>
                     </div>
                     <div className="flex items-center space-x-1 text-xs text-gray-600">
-                      <Download className="w-3 h-3" />
-                      <span>{item.download_count || 0} downloads</span>
+                      {item.category === 'websites' ? <ExternalLink className="w-3 h-3" /> : <Download className="w-3 h-3" />}
+                      <span>{item.download_count || 0} {item.category === 'websites' ? 'visits' : 'downloads'}</span>
                     </div>
                   </div>
                 </div>
                 
                 {/* Mobile Action Buttons */}
                 <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={handleDownload}
-                    disabled={downloading}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 flex items-center justify-center space-x-2 text-sm"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>{downloading ? 'Downloading...' : hasDownloaded ? 'Download Again' : 'Download'}</span>
-                  </button>
+                  {item.is_cross_platform_card ? (
+                    <button
+                      onClick={handleViewCrossPlatform}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2 text-sm"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span>View {item.cross_platform_type === 'web' ? 'Website' : 'App'}</span>
+                    </button>
+                  ) : item.category === 'websites' ? (
+                    <button
+                      onClick={handleDownload}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2 text-sm"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span>Open Website</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleDownload}
+                      disabled={downloading}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 flex items-center justify-center space-x-2 text-sm"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>{downloading ? 'Downloading...' : hasDownloaded ? 'Download Again' : 'Download'}</span>
+                    </button>
+                  )}
                   
                   <button 
                     onClick={handleShare}
@@ -541,7 +634,25 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
                     className="w-24 h-24 rounded-2xl shadow-lg"
                   />
                   <div className="flex-1 min-w-0">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{item.title}</h1>
+                    <div className="flex items-center justify-between mb-2">
+                      <h1 className="text-3xl font-bold text-gray-900">{item.title}</h1>
+                      {item.is_opensource && item.github_url && (
+                        <button
+                          onClick={() => window.open(item.github_url, '_blank', 'noopener,noreferrer')}
+                          className="github-badge flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-all duration-200 hover:scale-105 shadow-lg"
+                          title="View source code on GitHub"
+                        >
+                          <Github className="w-5 h-5" />
+                          <span className="font-medium">View Source</span>
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-3 mb-3">
+                      <span className={`inline-flex items-center space-x-1 text-sm font-medium px-3 py-1 rounded-full border ${getCategoryColor(item.category)}`}>
+                        {getCategoryIcon(item.category)}
+                        <span className="capitalize">{item.category}</span>
+                      </span>
+                    </div>
                     <p className="text-lg text-gray-600 mb-3">{item.developer}</p>
                     
                     <div className="flex items-center space-x-6 mb-4">
@@ -552,20 +663,38 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
                         </span>
                       </div>
                       <div className="flex items-center space-x-1 text-sm text-gray-600">
-                        <Download className="w-4 h-4" />
-                        <span>{item.download_count || 0} downloads</span>
+                        {item.category === 'websites' ? <ExternalLink className="w-4 h-4" /> : <Download className="w-4 h-4" />}
+                        <span>{item.download_count || 0} {item.category === 'websites' ? 'visits' : 'downloads'}</span>
                       </div>
                     </div>
 
                     <div className="flex items-center space-x-4 flex-wrap gap-2">
-                      <button
-                        onClick={handleDownload}
-                        disabled={downloading}
-                        className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 flex items-center space-x-2"
-                      >
-                        <Download className="w-5 h-5" />
-                        <span>{downloading ? 'Downloading...' : hasDownloaded ? 'Download Again' : 'Download'}</span>
-                      </button>
+                      {item.is_cross_platform_card ? (
+                        <button
+                          onClick={handleViewCrossPlatform}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
+                        >
+                          <ExternalLink className="w-5 h-5" />
+                          <span>View {item.cross_platform_type === 'web' ? 'Website' : 'App'}</span>
+                        </button>
+                      ) : item.category === 'websites' ? (
+                        <button
+                          onClick={handleDownload}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
+                        >
+                          <ExternalLink className="w-5 h-5" />
+                          <span>Open Website</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleDownload}
+                          disabled={downloading}
+                          className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 flex items-center space-x-2"
+                        >
+                          <Download className="w-5 h-5" />
+                          <span>{downloading ? 'Downloading...' : hasDownloaded ? 'Download Again' : 'Download'}</span>
+                        </button>
+                      )}
                       
                       {user && (
                         <div className="flex space-x-2">

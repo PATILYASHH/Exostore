@@ -39,12 +39,12 @@ const ItemCard: React.FC<ItemCardProps> = (item) => {
         stars.push(
           <Star
             key={i}
-            className="w-3 h-3 sm:w-4 sm:h-4 fill-yellow-400 text-yellow-400 star-animation"
+            className="w-3 h-3 sm:w-4 sm:h-4 fill-yellow-400 text-yellow-400"
           />
         );
       } else if (i === fullStars && hasHalfStar) {
         stars.push(
-          <div key={i} className="relative w-3 h-3 sm:w-4 sm:h-4 star-animation">
+          <div key={i} className="relative w-3 h-3 sm:w-4 sm:h-4">
             <Star className="absolute inset-0 text-gray-300" />
             <div className="absolute inset-0 overflow-hidden w-1/2">
               <Star className="w-3 h-3 sm:w-4 sm:h-4 fill-yellow-400 text-yellow-400" />
@@ -55,7 +55,7 @@ const ItemCard: React.FC<ItemCardProps> = (item) => {
         stars.push(
           <Star
             key={i}
-            className="w-3 h-3 sm:w-4 sm:h-4 text-gray-300 star-animation"
+            className="w-3 h-3 sm:w-4 sm:h-4 text-gray-300"
           />
         );
       }
@@ -66,7 +66,7 @@ const ItemCard: React.FC<ItemCardProps> = (item) => {
   // Simplified card design - only image, name, and stars
   return (
     <div 
-      className="group cursor-pointer bg-white rounded-2xl card-hover-effect border border-gray-100 hover:border-blue-200 overflow-hidden"
+      className="group cursor-pointer bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100 hover:border-blue-200 overflow-hidden"
       onClick={handleCardClick}
     >
       {/* Image Container */}

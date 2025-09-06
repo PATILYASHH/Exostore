@@ -25,21 +25,41 @@ export type StoreItem = {
   created_at: string;
   updated_at?: string;
   created_by?: string;
-  // New fields for user interactions
+  // Admin editable fields
+  version?: string;
+  file_size?: string;
+  last_updated?: string;
+  // Open source fields
+  is_opensource?: boolean;
+  github_url?: string;
+  // New fields for user interactions (from database)
   download_count: number;
   average_rating: number;
   rating_count: number;
+  // Cross-platform support fields (from database)
+  has_web_version?: boolean;
+  has_app_version?: boolean;
+  web_version_url?: string;
+  app_version_url?: string;
+  cross_platform_notes?: string;
   // Fields for uploaded files
   tags?: string[];
   downloadUrl?: string;
   isUploadedFile?: boolean;
   uploadedFileData?: any;
+  // Fields for cross-platform cards
+  is_cross_platform_card?: boolean;
+  original_category?: string;
+  cross_platform_type?: 'web' | 'app';
+  web_platform_url?: string;
+  app_platform_url?: string;
 };
 
 export type UserDownload = {
   id: string;
   user_id: string;
   item_id: string;
+  download_type: 'store_item' | 'uploaded_file';
   downloaded_at: string;
   ip_address?: string;
   user_agent?: string;
@@ -50,19 +70,29 @@ export type UserRating = {
   user_id: string;
   item_id: string;
   rating: number;
-  review?: string;
+  comment?: string;
+  rating_type: 'store_item' | 'uploaded_file';
   created_at: string;
   updated_at: string;
 };
 
 export type UploadedFile = {
   id: string;
-  item_id: string;
   filename: string;
   original_filename: string;
+  file_type: string;
   file_size: number;
-  mime_type: string;
-  storage_path: string;
-  uploaded_by: string;
+  file_url?: string;
+  mime_type?: string;
+  storage_path?: string;
+  uploaded_by?: string;
   uploaded_at: string;
+  download_count: number;
+  rating_count: number;
+  average_rating: number;
+  // Cross-platform support
+  has_web_version?: boolean;
+  has_app_version?: boolean;
+  web_version_url?: string;
+  app_version_url?: string;
 };
