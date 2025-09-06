@@ -66,30 +66,10 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
   };
 
   const fetchScreenshots = async () => {
-    try {
-      const itemType = item.isUploadedFile ? 'uploaded_file' : 'store_item';
-      const { data, error } = await supabase
-        .from('item_screenshots')
-        .select('screenshot_url')
-        .eq('item_id', item.id)
-        .eq('item_type', itemType)
-        .order('display_order', { ascending: true });
-
-      if (error) throw error;
-      
-      const screenshotUrls = data?.map(s => s.screenshot_url) || [];
-      // Always include the main item image as first screenshot
-      setScreenshots([item.image, ...screenshotUrls.filter(url => url !== item.image)]);
-    } catch (error) {
-      console.error('Error fetching screenshots:', error);
-      // Fallback to demo screenshots
-      setScreenshots([
-        item.image,
-        '/api/placeholder/600/400',
-        '/api/placeholder/600/400',
-        '/api/placeholder/600/400'
-      ]);
-    }
+    // Screenshots feature disabled to prevent database errors
+    console.log('Screenshots feature disabled - using main image only');
+    setScreenshots([item.image].filter(Boolean));
+    return;
   };
 
   const fetchReviews = async () => {
@@ -410,59 +390,99 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
 
             {/* Screenshots */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Screenshots</h2>
-              <div className="relative">
-                <img
-                  src={screenshots[currentImageIndex]}
-                  alt={`Screenshot ${currentImageIndex + 1}`}
-                  className="w-full h-96 object-cover rounded-lg"
-                />
-                {screenshots.length > 1 && (
-                  <>
-                    <button
-                      onClick={prevImage}
-                      className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={nextImage}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </>
-                )}
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-                  {screenshots.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentImageIndex(index)}
-                      className={`w-2 h-2 rounded-full transition-all ${
-                        index === currentImageIndex ? 'bg-white' : 'bg-white bg-opacity-50'
-                      }`}
-                    />
-                  ))}
-                </div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Screenshots & Demo Images</h2>
+                <span className="text-sm text-gray-500">{screenshots.length} image{screenshots.length !== 1 ? 's' : ''}</span>
               </div>
               
-              {screenshots.length > 1 && (
-                <div className="mt-4 flex space-x-2 overflow-x-auto">
-                  {screenshots.map((screenshot, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentImageIndex(index)}
-                      className={`flex-shrink-0 w-20 h-14 rounded border-2 transition-all ${
-                        index === currentImageIndex ? 'border-green-500' : 'border-gray-200'
-                      }`}
-                    >
-                      <img
-                        src={screenshot}
-                        alt={`Thumbnail ${index + 1}`}
-                        className="w-full h-full object-cover rounded"
-                      />
-                    </button>
-                  ))}
+              {screenshots.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Main Image Display */}
+                  <div className="relative">
+                    <img
+                      src={screenshots[currentImageIndex]}
+                      alt={`Screenshot ${currentImageIndex + 1} of ${item.title}`}
+                      className="w-full h-96 object-cover rounded-lg shadow-sm"
+                      onError={(e) => {
+                        console.log('Image load error for:', screenshots[currentImageIndex]);
+                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/800x400/e5e7eb/6b7280?text=Image+Not+Found';
+                      }}
+                    />
+                    
+                    {/* Navigation arrows - only show if multiple images */}
+                    {screenshots.length > 1 && (
+                      <>
+                        <button
+                          onClick={prevImage}
+                          className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={nextImage}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </>
+                    )}
+                    
+                    {/* Image counter */}
+                    <div className="absolute bottom-4 right-4 bg-black bg-opacity-60 text-white px-3 py-1 rounded-full text-sm">
+                      {currentImageIndex + 1} / {screenshots.length}
+                    </div>
+                    
+                    {/* Dot indicators for multiple images */}
+                    {screenshots.length > 1 && screenshots.length <= 10 && (
+                      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                        {screenshots.map((_, index) => (
+                          <button
+                            key={index}
+                            onClick={() => setCurrentImageIndex(index)}
+                            className={`w-2 h-2 rounded-full transition-all ${
+                              index === currentImageIndex ? 'bg-white' : 'bg-white bg-opacity-50'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Thumbnail Grid - only show if multiple images */}
+                  {screenshots.length > 1 && (
+                    <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2">
+                      {screenshots.map((screenshot, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setCurrentImageIndex(index)}
+                          className={`aspect-square rounded-lg border-2 transition-all overflow-hidden ${
+                            index === currentImageIndex 
+                              ? 'border-blue-500 ring-2 ring-blue-200' 
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <img
+                            src={screenshot}
+                            alt={`Thumbnail ${index + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/100x100/e5e7eb/6b7280?text=' + (index + 1);
+                            }}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <p>No screenshots available</p>
+                  <p className="text-sm mt-1">Admin can upload demo images for this app</p>
                 </div>
               )}
             </div>

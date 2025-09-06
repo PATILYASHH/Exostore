@@ -370,33 +370,9 @@ const AdminPanel: React.FC = () => {
   };
 
   const saveScreenshotsToDatabase = async (itemId: string, itemType: 'store_item' | 'uploaded_file') => {
-    try {
-      // Remove existing screenshots for this item
-      await supabase
-        .from('item_screenshots')
-        .delete()
-        .eq('item_id', itemId)
-        .eq('item_type', itemType);
-
-      // Insert new screenshots
-      if (screenshots.length > 0) {
-        const screenshotData = screenshots.map((url, index) => ({
-          item_id: itemId,
-          item_type: itemType,
-          screenshot_url: url,
-          display_order: index
-        }));
-
-        const { error } = await supabase
-          .from('item_screenshots')
-          .insert(screenshotData);
-
-        if (error) throw error;
-      }
-    } catch (error) {
-      console.error('Error saving screenshots:', error);
-      alert('Failed to save screenshots');
-    }
+    // Screenshots feature disabled to prevent database errors
+    console.log('Screenshots feature disabled - skipping database save');
+    return;
   };
 
   const startEdit = (item: StoreItem) => {
@@ -417,23 +393,11 @@ const AdminPanel: React.FC = () => {
     setActiveTab('items');
   };
 
-  const loadItemScreenshots = async (itemId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('item_screenshots')
-        .select('screenshot_url')
-        .eq('item_id', itemId)
-        .eq('item_type', 'store_item')
-        .order('display_order', { ascending: true });
-
-      if (error) throw error;
-      
-      const screenshotUrls = data?.map(s => s.screenshot_url) || [];
-      setScreenshots(screenshotUrls);
-    } catch (error) {
-      console.error('Error loading screenshots:', error);
-      setScreenshots([]);
-    }
+  const loadItemScreenshots = async (_itemId: string) => {
+    // Screenshots feature disabled to prevent database errors
+    console.log('Screenshots feature disabled - skipping database load');
+    setScreenshots([]);
+    return;
   };
 
   const filteredItems = items.filter(item => {
@@ -1381,10 +1345,10 @@ const AdminPanel: React.FC = () => {
                 {/* Screenshots Section */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Demo Images / Screenshots
+                    Demo Images / Screenshots (Optional)
                   </label>
                   <p className="text-sm text-gray-500 mb-3">
-                    Upload multiple screenshots to showcase your app or website (up to 8 images)
+                    Upload multiple screenshots to showcase your app or website (up to 8 images). Note: Database storage is currently disabled to prevent errors.
                   </p>
                   
                   {/* Screenshot Upload Area */}

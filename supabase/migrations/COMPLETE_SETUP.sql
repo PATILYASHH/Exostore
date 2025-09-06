@@ -85,7 +85,49 @@ CREATE POLICY "Admins can manage hero banners" ON hero_banners
 CREATE INDEX IF NOT EXISTS idx_hero_banners_active ON hero_banners(is_active, display_order);
 CREATE INDEX IF NOT EXISTS idx_hero_banners_created_at ON hero_banners(created_at DESC);
 
--- 9. Insert sample data if tables are empty
+-- 9. Create user_ratings table for rating functionality
+CREATE TABLE IF NOT EXISTS user_ratings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  item_id uuid NOT NULL,
+  rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  comment text,
+  rating_type varchar(20) DEFAULT 'store_item' CHECK (rating_type IN ('store_item', 'uploaded_file')),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(user_id, item_id, rating_type)
+);
+
+-- Enable RLS on user_ratings
+ALTER TABLE user_ratings ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for user_ratings
+DROP POLICY IF EXISTS "Anyone can view ratings" ON user_ratings;
+CREATE POLICY "Anyone can view ratings" ON user_ratings
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can add ratings" ON user_ratings;
+CREATE POLICY "Users can add ratings" ON user_ratings
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own ratings" ON user_ratings;
+CREATE POLICY "Users can update their own ratings" ON user_ratings
+  FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own ratings" ON user_ratings;
+CREATE POLICY "Users can delete their own ratings" ON user_ratings
+  FOR DELETE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admin can manage all ratings" ON user_ratings;
+CREATE POLICY "Admin can manage all ratings" ON user_ratings
+  FOR ALL USING (auth.email() = 'yashpatil575757@gmail.com');
+
+-- Create indexes for user_ratings
+CREATE INDEX IF NOT EXISTS idx_user_ratings_item ON user_ratings(item_id, rating_type);
+CREATE INDEX IF NOT EXISTS idx_user_ratings_user ON user_ratings(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_ratings_created_at ON user_ratings(created_at DESC);
+
+-- 10. Insert sample data if tables are empty
 -- Sample hero banner
 INSERT INTO hero_banners (
   title,
@@ -148,15 +190,17 @@ BEGIN
     END IF;
 END $$;
 
--- 10. Final verification
+-- 11. Final verification
 SELECT 'Final counts:' as info;
 SELECT 'Store items:' as type, COUNT(*) as count FROM store_items
 UNION ALL
 SELECT 'Hero banners:' as type, COUNT(*) as count FROM hero_banners
 UNION ALL
-SELECT 'Screenshots:' as type, COUNT(*) as count FROM item_screenshots;
+SELECT 'Screenshots:' as type, COUNT(*) as count FROM item_screenshots
+UNION ALL
+SELECT 'User ratings:' as type, COUNT(*) as count FROM user_ratings;
 
--- 11. Show what we now have
+-- 12. Show what we now have
 SELECT 'Current store items:' as info;
 SELECT title, developer, category, created_at FROM store_items ORDER BY created_at DESC LIMIT 5;
 
@@ -167,8 +211,9 @@ SELECT 'Sample screenshots:' as info;
 SELECT 
   s.item_id,
   i.title,
-  COUNT(*) as screenshot_count
+  COUNT(*) as screenshot_count,
+  MIN(i.created_at) as created_at
 FROM item_screenshots s
 JOIN store_items i ON s.item_id = i.id
 GROUP BY s.item_id, i.title
-ORDER BY i.created_at DESC;
+ORDER BY MIN(i.created_at) DESC;

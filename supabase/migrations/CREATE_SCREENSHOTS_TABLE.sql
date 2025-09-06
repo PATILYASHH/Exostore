@@ -24,6 +24,7 @@ CREATE POLICY "Anyone can view screenshots" ON item_screenshots
 CREATE POLICY "Admins can manage screenshots" ON item_screenshots
   FOR ALL USING (
     auth.email() = 'yashpatil575757@gmail.com'
+    .
   );
 
 -- Create indexes for better performance

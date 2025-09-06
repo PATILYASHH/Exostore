@@ -64,10 +64,10 @@ const Header: React.FC<HeaderProps> = ({
             {/* Logo */}
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-lg">E</span>
+                <span className="text-white font-bold text-lg">Y</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Exostore</h1>
+                <h1 className="text-xl font-bold text-gray-900">YashStore</h1>
                 <p className="text-xs text-gray-500">Digital Marketplace</p>
               </div>
             </div>
@@ -173,10 +173,10 @@ const Header: React.FC<HeaderProps> = ({
             {/* Logo */}
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-sm">E</span>
+                <span className="text-white font-bold text-sm">Y</span>
               </div>
               <div>
-                <h1 className="text-lg font-bold text-gray-900">Exostore</h1>
+                <h1 className="text-lg font-bold text-gray-900">YashStore</h1>
               </div>
             </div>
 
