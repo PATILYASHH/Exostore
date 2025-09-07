@@ -1,5 +1,6 @@
 # Exostore 🚀
 
+
 A modern, responsive digital marketplace built with React, TypeScript, and Supabase. Discover and share amazing apps, games, and websites.
 
 ## ✨ Features
