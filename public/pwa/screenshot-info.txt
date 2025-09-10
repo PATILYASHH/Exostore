@@ -1,0 +1,8 @@
+<!-- PWA Screenshot Placeholder -->
+<!-- This would be replaced with actual screenshots in production -->
+
+For PWA screenshots, you need:
+1. Desktop screenshot: 1280x720 pixels (wide form factor)
+2. Mobile screenshot: 390x844 pixels (narrow form factor)
+
+These should show your app's main interface and help users understand what they'll see when they install your PWA.
