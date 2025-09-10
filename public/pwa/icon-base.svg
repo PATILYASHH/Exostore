@@ -1,0 +1,41 @@
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#10B981;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" ry="80" fill="url(#bg)" />
+  
+  <!-- Exostore Shopping Bag Icon -->
+  <g fill="white" stroke="white">
+    <!-- Main shopping bag -->
+    <rect x="140" y="180" width="232" height="220" rx="20" ry="20" fill="none" stroke-width="24"/>
+    
+    <!-- Shopping bag handles -->
+    <path d="M190 180 L190 130 A66 66 0 0 1 322 130 L322 180" fill="none" stroke-width="24"/>
+    
+    <!-- Shopping cart items -->
+    <g fill="white">
+      <!-- Items in shopping bag (circles to represent products) -->
+      <circle cx="200" cy="250" r="12" fill="white"/>
+      <circle cx="240" cy="250" r="12" fill="white"/>
+      <circle cx="280" cy="250" r="12" fill="white"/>
+      <circle cx="320" cy="250" r="12" fill="white"/>
+      
+      <circle cx="220" cy="290" r="12" fill="white"/>
+      <circle cx="260" cy="290" r="12" fill="white"/>
+      <circle cx="300" cy="290" r="12" fill="white"/>
+      
+      <circle cx="200" cy="330" r="12" fill="white"/>
+      <circle cx="240" cy="330" r="12" fill="white"/>
+      <circle cx="280" cy="330" r="12" fill="white"/>
+      <circle cx="320" cy="330" r="12" fill="white"/>
+    </g>
+  </g>
+  
+  <!-- Subtle border -->
+  <rect width="512" height="512" rx="80" ry="80" fill="none" stroke="white" stroke-width="4" opacity="0.2"/>
+</svg>

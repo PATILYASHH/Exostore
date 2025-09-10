@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Icon Generator</title>
+    <style>
+        canvas { border: 1px solid #ccc; margin: 10px; }
+    </style>
+</head>
+<body>
+    <h2>Generating Exostore Icons...</h2>
+    
+    <script>
+        // Create a simple icon programmatically
+        function createIcon(size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Background gradient (blue to green - matching your theme)
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#3B82F6'); // Blue
+            gradient.addColorStop(1, '#10B981'); // Green
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Add "E" letter in white
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = `bold ${size * 0.6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('E', size/2, size/2);
+            
+            // Add small border
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = Math.max(1, size * 0.02);
+            ctx.strokeRect(0, 0, size, size);
+            
+            return canvas;
+        }
+        
+        // Generate icons for different sizes
+        const sizes = [16, 32, 72, 96, 128, 144, 152, 192, 384, 512];
+        sizes.forEach(size => {
+            const canvas = createIcon(size);
+            document.body.appendChild(canvas);
+            
+            // You can download these manually or use this data URL
+            canvas.toBlob(blob => {
+                console.log(`Icon ${size}x${size} generated`);
+            });
+        });
+    </script>
+</body>
+</html>
