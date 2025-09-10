@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Settings } from 'lucide-react';
 import AppDetailRoute from './AppDetailRoute';
 import { useAuth, AuthProvider } from './contexts/AuthContext';
 import Header from './components/Header';
@@ -257,8 +258,17 @@ const AppContent: React.FC = () => {
         user={user}
         isAdmin={isAdmin}
         onShowAdmin={() => {
-          console.log('onShowAdmin called!', { isAdmin, user: user?.email, currentShowAdminPanel: showAdminPanel });
-          setShowAdminPanel(true);
+          // Allow admin users OR the specific admin email to open admin panel
+          if (isAdmin || user?.email === 'yashpatil575757@gmail.com') {
+            console.log('✅ Admin access granted!', { 
+              isAdmin, 
+              userEmail: user?.email,
+              reason: isAdmin ? 'isAdmin=true' : 'hardcoded email match'
+            });
+            setShowAdminPanel(true);
+          } else {
+            console.log('❌ Admin access denied!', { isAdmin, userEmail: user?.email });
+          }
         }}
         onShowAuth={() => setShowAuthModal(true)}
       />
@@ -268,13 +278,21 @@ const AppContent: React.FC = () => {
         onClose={() => setShowAuthModal(false)}
       />
 
-      {/* Admin Panel */}
-      {showAdminPanel && (
-        <div className="fixed inset-0 z-50 bg-white">
-          <AdminPanel
-            onClose={() => setShowAdminPanel(false)}
-          />
-        </div>
+      {/* Admin Panel - Show for admin users OR specific admin email */}
+      {showAdminPanel && (isAdmin || user?.email === 'yashpatil575757@gmail.com') && (
+        <>
+          {console.log('🎯 Rendering AdminPanel:', { 
+            showAdminPanel, 
+            isAdmin, 
+            userEmail: user?.email,
+            condition: isAdmin || user?.email === 'yashpatil575757@gmail.com'
+          })}
+          <div className="fixed inset-0 z-50 bg-white">
+            <AdminPanel
+              onClose={() => setShowAdminPanel(false)}
+            />
+          </div>
+        </>
       )}
 
       <main className="min-h-screen bg-gray-50 mobile-content">
@@ -288,6 +306,52 @@ const AppContent: React.FC = () => {
                   <div className="bg-white">
                     <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-6 sm:py-8">
                       <FeaturedSection title="Featured" items={featuredItems} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Special Admin Panel Button - Only for Admin */}
+                {isAdmin && user && (
+                  <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 mb-8">
+                    <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl shadow-xl p-4 sm:p-6 text-white">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+                        <div className="flex items-center space-x-3 sm:space-x-4">
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                            <Settings className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                          </div>
+                          <div>
+                            <h2 className="text-xl sm:text-2xl font-bold mb-1">Admin Dashboard</h2>
+                            <p className="text-purple-100 text-xs sm:text-sm">
+                              Welcome back, Administrator
+                            </p>
+                            <p className="text-purple-100 text-xs sm:text-sm truncate max-w-xs sm:max-w-none">
+                              {user?.email}
+                            </p>
+                            <p className="text-purple-200 text-xs mt-1 hidden sm:block">
+                              Manage your store content, view analytics, and configure settings
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col space-y-2 sm:space-y-3 w-full sm:w-auto">
+                          <button
+                            onClick={() => {
+                              console.log('🎯 Special Admin Panel button clicked!');
+                              setShowAdminPanel(true);
+                            }}
+                            className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 sm:px-6 sm:py-3 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 border border-white/20 w-full sm:w-auto"
+                          >
+                            <div className="flex items-center justify-center space-x-2">
+                              <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+                              <span className="text-sm sm:text-base">Open Admin Panel</span>
+                            </div>
+                          </button>
+                          <div className="text-center">
+                            <span className="text-xs text-purple-200">
+                              Status: {showAdminPanel ? '🟢 Active' : '⚪ Ready'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -343,6 +407,88 @@ const AppContent: React.FC = () => {
                             Sign In to Upload Content
                           </button>
                         )}
+                        
+                        {/* Emergency Admin Access - Always visible for specific email */}
+                        {user?.email === 'yashpatil575757@gmail.com' && (
+                          <div className="mt-8 p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className="text-2xl">🚨</span>
+                              <strong className="text-red-800">Emergency Admin Access</strong>
+                            </div>
+                            <p className="text-red-700 text-sm mb-3">
+                              Direct access for: {user?.email}
+                            </p>
+                            <p className="text-red-700 text-sm mb-3">
+                              Admin Status: {isAdmin ? '✅ Detected' : '❌ Not Detected'}
+                            </p>
+                            <p className="text-red-700 text-sm mb-3">
+                              Panel State: {showAdminPanel ? '🟢 Open' : '🔴 Closed'}
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                onClick={() => {
+                                  console.log('🚨 Emergency admin access triggered!');
+                                  setShowAdminPanel(true);
+                                }}
+                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200"
+                              >
+                                🚨 Emergency Admin Panel
+                              </button>
+                              {showAdminPanel && (
+                                <button
+                                  onClick={() => {
+                                    console.log('Closing admin panel');
+                                    setShowAdminPanel(false);
+                                  }}
+                                  className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200"
+                                >
+                                  ❌ Close Panel
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Admin Debug Section - Only for admin users */}
+                        {isAdmin && user && (
+                          <div className="mt-8 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className="text-2xl">👑</span>
+                              <strong className="text-green-800">Admin Controls</strong>
+                            </div>
+                            <p className="text-green-700 text-sm mb-3">
+                              Admin Status: ✅ Verified ({user?.email})
+                            </p>
+                            <p className="text-green-700 text-sm mb-3">
+                              Panel State: {showAdminPanel ? '🟢 Open' : '🔴 Closed'}
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                onClick={() => {
+                                  console.log('Force opening admin panel for admin user');
+                                  setShowAdminPanel(true);
+                                }}
+                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200"
+                              >
+                                🚀 Open Admin Panel
+                              </button>
+                              {showAdminPanel && (
+                                <button
+                                  onClick={() => {
+                                    console.log('Closing admin panel');
+                                    setShowAdminPanel(false);
+                                  }}
+                                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200"
+                                >
+                                  ❌ Close Admin Panel
+                                </button>
+                              )}
+                            </div>
+                            <div className="mt-3 p-2 bg-green-100 rounded text-xs text-green-800">
+                              <strong>Note:</strong> You have full admin privileges. Use this section if header buttons don't work.
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -376,78 +522,6 @@ const AppContent: React.FC = () => {
                         >
                           Clear search
                         </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Debug Section - Show to all signed-in users */}
-                  {user && (
-                    <div className="mt-8">
-                      {/* Debug Admin Panel Access */}
-                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <span className="text-2xl">🔧</span>
-                          <strong className="text-blue-800">Debug Panel</strong>
-                        </div>
-                        <p className="text-blue-700 text-sm mb-3">
-                          Admin Status: {isAdmin ? '✅ Admin Access Granted' : '❌ No Admin Access'}
-                        </p>
-                        <p className="text-blue-700 text-sm mb-3">
-                          Current User: {user?.email || 'Not signed in'}
-                        </p>
-                        <p className="text-blue-700 text-sm mb-3">
-                          Admin Panel State: {showAdminPanel ? '🟢 Open' : '🔴 Closed'}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {isAdmin ? (
-                            <>
-                              <button
-                                onClick={() => {
-                                  console.log('Debug: Opening admin panel (admin user)');
-                                  setShowAdminPanel(true);
-                                }}
-                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200"
-                              >
-                                🚀 Open Admin Panel
-                              </button>
-                              <button
-                                onClick={() => {
-                                  console.log('Debug: Closing admin panel');
-                                  setShowAdminPanel(false);
-                                }}
-                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200"
-                              >
-                                ❌ Close Admin Panel
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => {
-                                  console.log('Debug: Force opening admin panel for non-admin user');
-                                  (window as any).showAdminPanelForceOpen = true;
-                                  setShowAdminPanel(true);
-                                }}
-                                className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200"
-                              >
-                                � Force Open Admin Panel
-                              </button>
-                              <button
-                                onClick={() => {
-                                  console.log('Debug: Disabling force-open and closing admin panel');
-                                  (window as any).showAdminPanelForceOpen = false;
-                                  setShowAdminPanel(false);
-                                }}
-                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200"
-                              >
-                                ❌ Close & Disable Force Open
-                              </button>
-                            </>
-                          )}
-                        </div>
-                        <div className="mt-3 p-2 bg-blue-100 rounded text-xs text-blue-800">
-                          <strong>Note:</strong> {isAdmin ? 'You have admin privileges.' : 'You can force-open the admin panel for testing. Some features may be restricted.'}
-                        </div>
                       </div>
                     </div>
                   )}

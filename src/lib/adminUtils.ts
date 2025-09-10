@@ -4,7 +4,12 @@ export const ADMIN_EMAIL = 'yashpatil575757@gmail.com';
 // Check if user has admin privileges
 export const isUserAdmin = (userEmail: string | undefined): boolean => {
   const result = userEmail === ADMIN_EMAIL;
-  console.log('Admin check:', { userEmail, ADMIN_EMAIL, isAdmin: result });
+  console.log('Admin check:', { 
+    userEmail: userEmail || 'undefined', 
+    ADMIN_EMAIL, 
+    isAdmin: result,
+    exactMatch: userEmail === 'yashpatil575757@gmail.com'
+  });
   return result;
 };
 

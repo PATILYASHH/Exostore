@@ -26,7 +26,6 @@ const AdminPanel: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
 
   // Admin access control
   // If user is not signed in, always block
-  let isForceOpen = false;
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -38,22 +37,17 @@ const AdminPanel: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
     );
   }
 
-  // If not admin, but showAdminPanel is true, allow access (force open)
-  if (user && !isAdmin && typeof window !== 'undefined') {
-    // @ts-ignore
-    if (window.showAdminPanelForceOpen) {
-      isForceOpen = true;
-    } else {
-      return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-md p-8 text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
-            <p className="text-gray-600 mb-4">You don't have admin privileges.</p>
-            <p className="text-sm text-gray-500">Only authorized administrators can access this panel.</p>
-          </div>
+  // Strict admin access control - no exceptions
+  if (user && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
+          <p className="text-gray-600 mb-4">You don't have admin privileges.</p>
+          <p className="text-sm text-gray-500">Only authorized administrators can access this panel.</p>
         </div>
-      );
-    }
+      </div>
+    );
   }
 
   const [formData, setFormData] = useState({
@@ -581,45 +575,24 @@ const AdminPanel: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
   const DashboardView = () => (
     <div className="space-y-6">
       {/* Admin Access Info */}
-      {isForceOpen ? (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
-          <div className="flex items-center space-x-3">
-            <div className="flex-shrink-0">
-              <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <Activity className="w-5 h-5 text-yellow-600" />
-              </div>
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-yellow-800">Debug Access (Force-Open)</h3>
-              <p className="text-yellow-700">
-                Logged in as: <span className="font-medium">{user?.email}</span>
-              </p>
-              <p className="text-sm text-yellow-600 mt-1">
-                You are viewing the admin panel in debug mode. Some features may be restricted.
-              </p>
+      <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+              <Settings className="w-5 h-5 text-green-600" />
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
-          <div className="flex items-center space-x-3">
-            <div className="flex-shrink-0">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <Settings className="w-5 h-5 text-green-600" />
-              </div>
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-green-800">Admin Access Active</h3>
-              <p className="text-green-700">
-                Logged in as: <span className="font-medium">{user?.email}</span>
-              </p>
-              <p className="text-sm text-green-600 mt-1">
-                You have full administrative privileges for this store.
-              </p>
-            </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-green-800">Admin Access Active</h3>
+            <p className="text-green-700">
+              Logged in as: <span className="font-medium">{user?.email}</span>
+            </p>
+            <p className="text-sm text-green-600 mt-1">
+              You have full administrative privileges for this store.
+            </p>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1138,12 +1111,6 @@ const AdminPanel: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Debug Info Box for Force-Open */}
-      {isForceOpen && (
-        <div className="bg-yellow-100 text-yellow-900 px-4 py-2 text-center text-sm font-semibold">
-          Debug Mode: Admin panel is force-opened for non-admin user. To disable, set <code>window.showAdminPanelForceOpen = false</code> in the browser console.
-        </div>
-      )}
       {/* Navigation */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

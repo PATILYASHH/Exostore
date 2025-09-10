@@ -23,7 +23,7 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
   const { user } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [downloading, setDownloading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // For both downloading and opening websites
   const [userRating, setUserRating] = useState(0);
   const [userReview, setUserReview] = useState('');
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -92,6 +92,24 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
     }
   };
 
+  // Helper function to get button text and icon based on item type
+  const getActionButtonProps = () => {
+    const isWebsite = item.type === 'websites';
+    if (isWebsite) {
+      return {
+        icon: ExternalLink,
+        text: isProcessing ? 'Opening...' : 'Open Website',
+        actionText: hasDownloaded ? 'Open Again' : 'Open Website'
+      };
+    } else {
+      return {
+        icon: Download,
+        text: isProcessing ? 'Downloading...' : 'Download',
+        actionText: hasDownloaded ? 'Download Again' : 'Download'
+      };
+    }
+  };
+
   const checkUserDownload = async () => {
     if (!user) return;
     
@@ -113,7 +131,7 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
   };
 
   const handleDownload = async () => {
-    setDownloading(true);
+    setIsProcessing(true);
     try {
       // Record download if user is authenticated
       if (user && !hasDownloaded) {
@@ -135,7 +153,7 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
         }
       }
 
-      // Trigger download
+      // For websites, just open in new tab. For apps/games, trigger download
       if (item.isUploadedFile && item.downloadUrl) {
         window.open(item.downloadUrl, '_blank');
       } else if (item.download_link) {
@@ -152,10 +170,10 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
         alert('No download link available');
       }
     } catch (error) {
-      console.error('Error downloading:', error);
-      alert('Error downloading file');
+      console.error('Error processing request:', error);
+      alert(`Error ${item.type === 'websites' ? 'opening website' : 'downloading file'}`);
     } finally {
-      setDownloading(false);
+      setIsProcessing(false);
     }
   };
 
@@ -569,22 +587,23 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
                       <ExternalLink className="w-4 h-4" />
                       <span>View {item.cross_platform_type === 'web' ? 'Website' : 'App'}</span>
                     </button>
-                  ) : item.category === 'websites' ? (
+                  ) : item.type === 'websites' ? (
                     <button
                       onClick={handleDownload}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2 text-sm"
+                      disabled={isProcessing}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 flex items-center justify-center space-x-2 text-sm"
                     >
                       <ExternalLink className="w-4 h-4" />
-                      <span>Open Website</span>
+                      <span>{isProcessing ? 'Opening...' : 'Open Website'}</span>
                     </button>
                   ) : (
                     <button
                       onClick={handleDownload}
-                      disabled={downloading}
+                      disabled={isProcessing}
                       className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 flex items-center justify-center space-x-2 text-sm"
                     >
                       <Download className="w-4 h-4" />
-                      <span>{downloading ? 'Downloading...' : hasDownloaded ? 'Download Again' : 'Download'}</span>
+                      <span>{isProcessing ? 'Downloading...' : hasDownloaded ? 'Download Again' : 'Download'}</span>
                     </button>
                   )}
                   
@@ -677,22 +696,23 @@ const ItemDetailPage: React.FC<ItemDetailPageProps> = ({ item, onBack }) => {
                           <ExternalLink className="w-5 h-5" />
                           <span>View {item.cross_platform_type === 'web' ? 'Website' : 'App'}</span>
                         </button>
-                      ) : item.category === 'websites' ? (
+                      ) : item.type === 'websites' ? (
                         <button
                           onClick={handleDownload}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
+                          disabled={isProcessing}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 flex items-center space-x-2"
                         >
                           <ExternalLink className="w-5 h-5" />
-                          <span>Open Website</span>
+                          <span>{isProcessing ? 'Opening...' : 'Open Website'}</span>
                         </button>
                       ) : (
                         <button
                           onClick={handleDownload}
-                          disabled={downloading}
+                          disabled={isProcessing}
                           className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 flex items-center space-x-2"
                         >
                           <Download className="w-5 h-5" />
-                          <span>{downloading ? 'Downloading...' : hasDownloaded ? 'Download Again' : 'Download'}</span>
+                          <span>{isProcessing ? 'Downloading...' : hasDownloaded ? 'Download Again' : 'Download'}</span>
                         </button>
                       )}
                       

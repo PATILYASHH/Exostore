@@ -140,7 +140,12 @@ const Header: React.FC<HeaderProps> = ({
                       {isAdmin && (
                         <button
                           onClick={() => {
-                            console.log('Desktop Admin panel button clicked!', { isAdmin, user: user?.email });
+                            console.log('🚀 Desktop Admin panel button clicked!', { 
+                              isAdmin, 
+                              userEmail: user?.email, 
+                              adminEmail: 'yashpatil575757@gmail.com',
+                              match: user?.email === 'yashpatil575757@gmail.com'
+                            });
                             onShowAdmin();
                             setShowUserMenu(false);
                           }}
@@ -150,12 +155,14 @@ const Header: React.FC<HeaderProps> = ({
                           <span>Admin Panel</span>
                         </button>
                       )}
-                      {!isAdmin && user && (
+                      {/* Debug - Show button for specific email even if isAdmin is false */}
+                      {!isAdmin && user?.email === 'yashpatil575757@gmail.com' && (
                         <button
                           onClick={() => {
-                            console.log('Debug: Force opening admin panel for non-admin user');
-                            // Set the window flag for force-open
-                            (window as any).showAdminPanelForceOpen = true;
+                            console.log('🔧 DEBUG: Force admin access for correct email!', { 
+                              isAdmin, 
+                              userEmail: user?.email 
+                            });
                             onShowAdmin();
                             setShowUserMenu(false);
                           }}
@@ -233,7 +240,12 @@ const Header: React.FC<HeaderProps> = ({
                       {isAdmin && (
                         <button
                           onClick={() => {
-                            console.log('Mobile Admin panel button clicked!', { isAdmin, user: user?.email });
+                            console.log('📱 Mobile Admin panel button clicked!', { 
+                              isAdmin, 
+                              userEmail: user?.email, 
+                              adminEmail: 'yashpatil575757@gmail.com',
+                              match: user?.email === 'yashpatil575757@gmail.com'
+                            });
                             onShowAdmin();
                             setShowUserMenu(false);
                           }}
@@ -243,12 +255,14 @@ const Header: React.FC<HeaderProps> = ({
                           <span>Admin Panel</span>
                         </button>
                       )}
-                      {!isAdmin && user && (
+                      {/* Debug - Show button for specific email even if isAdmin is false */}
+                      {!isAdmin && user?.email === 'yashpatil575757@gmail.com' && (
                         <button
                           onClick={() => {
-                            console.log('Debug: Force opening admin panel for non-admin user (mobile)');
-                            // Set the window flag for force-open
-                            (window as any).showAdminPanelForceOpen = true;
+                            console.log('🔧 DEBUG: Mobile force admin access for correct email!', { 
+                              isAdmin, 
+                              userEmail: user?.email 
+                            });
                             onShowAdmin();
                             setShowUserMenu(false);
                           }}
